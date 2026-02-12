@@ -14,6 +14,7 @@ import Projects from './pages/Projects'
 import Certifications from './pages/Certifications'
 import Achievements from './pages/Achievements'
 import AdditionalLinks from './pages/AdditionalLinks'
+import GenerateResume from './pages/GenerateResume'
 
 function PublicRoute({ children }) {
   const { user, loading } = useAuth()
@@ -38,6 +39,7 @@ function AppRoutes() {
       <Route path="/certifications" element={<ProtectedRoute><Layout><Certifications /></Layout></ProtectedRoute>} />
       <Route path="/achievements" element={<ProtectedRoute><Layout><Achievements /></Layout></ProtectedRoute>} />
       <Route path="/additional-links" element={<ProtectedRoute><Layout><AdditionalLinks /></Layout></ProtectedRoute>} />
+      <Route path="/generate-resume" element={<ProtectedRoute><Layout><GenerateResume /></Layout></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

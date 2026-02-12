@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import resume_views
 
 urlpatterns = [
     # Dashboard
@@ -35,4 +36,8 @@ urlpatterns = [
     # Achievements
     path('achievements/', views.achievement_list, name='achievement_list'),
     path('achievements/<int:pk>/', views.achievement_detail, name='achievement_detail'),
+
+    # Resume Generation
+    path('resume/generate/', resume_views.generate_resume, name='generate_resume'),
+    path('resume/preview/', resume_views.resume_preview_data, name='resume_preview'),
 ]

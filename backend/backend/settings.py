@@ -167,3 +167,6 @@ CSRF_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_HTTPONLY = False
 
+# Ollama Configuration
+OLLAMA_API_URL = 'http://localhost:11434/api/generate'
+OLLAMA_MODEL = 'mistral'  

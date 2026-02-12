@@ -50,4 +50,9 @@ export const profileAPI = {
   remove: (resource, id) => API.delete(`/${resource}/${id}/`),
 }
 
+export const resumeAPI = {
+  generate: (data) => API.post('/resume/generate/', data),
+  preview: () => API.get('/resume/preview/'),
+}
+
 export default API

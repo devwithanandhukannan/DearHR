@@ -5,7 +5,7 @@ import { profileAPI } from '../api/axios'
 import {
   FiGrid, FiUser, FiBook, FiBriefcase,
   FiSettings, FiFolder, FiAward, FiStar,
-  FiLink, FiLogOut
+  FiLink, FiLogOut, FiFileText
 } from 'react-icons/fi'
 
 export default function Sidebar() {
@@ -72,11 +72,20 @@ export default function Sidebar() {
           >
             <span className="nav-icon">{item.icon}</span>
             <span>{item.label}</span>
-            {item.count !== undefined && (
-              <span className="nav-count">{item.count}</span>
-            )}
+            {item.count !== undefined && <span className="nav-count">{item.count}</span>}
           </NavLink>
         ))}
+
+        <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', margin: '12px 0' }} />
+
+        <NavLink
+          to="/generate-resume"
+          className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+        >
+          <span className="nav-icon"><FiFileText /></span>
+          <span>Generate Resume</span>
+          <span className="nav-count" style={{ background: 'rgba(102,126,234,0.3)', color: '#667eea' }}>AI</span>
+        </NavLink>
       </nav>
 
       <div className="sidebar-footer">

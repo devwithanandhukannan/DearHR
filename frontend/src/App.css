@@ -662,3 +662,274 @@ body {
   .entry-card { flex-direction: column; }
   .entry-actions { margin-left: 0; margin-top: 14px; }
 }
+
+/* ══════════════════════════════════════
+   RESUME GENERATOR STYLES
+   ══════════════════════════════════════ */
+
+/* Steps Bar */
+.steps-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin-bottom: 30px;
+  padding: 20px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+
+.step-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #aaa;
+  transition: all 0.2s;
+}
+
+.step-item.active {
+  color: #667eea;
+}
+
+.step-num {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  background: #eee;
+  color: #aaa;
+  transition: all 0.2s;
+}
+
+.step-item.active .step-num {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+}
+
+.step-line {
+  width: 60px;
+  height: 2px;
+  background: #e1e5e9;
+  margin: 0 12px;
+}
+
+/* Template Selection */
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.template-option {
+  padding: 16px;
+  border: 2px solid #e1e5e9;
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.template-option:hover {
+  border-color: #667eea;
+  background: #f8f7ff;
+}
+
+.template-option.selected {
+  border-color: #667eea;
+  background: linear-gradient(135deg, #667eea10, #764ba210);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+}
+
+.template-label {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.template-desc {
+  font-size: 11px;
+  color: #888;
+}
+
+/* Color Selection */
+.color-grid {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.color-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 2px solid #e1e5e9;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.color-option:hover {
+  border-color: #667eea;
+}
+
+.color-option.selected {
+  border-color: #667eea;
+  background: #f8f7ff;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+}
+
+.color-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid rgba(0,0,0,0.1);
+}
+
+/* Font Selection */
+.font-grid {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.font-option {
+  padding: 10px 20px;
+  border: 2px solid #e1e5e9;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.font-option:hover {
+  border-color: #667eea;
+}
+
+.font-option.selected {
+  border-color: #667eea;
+  background: #f8f7ff;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+}
+
+/* Generating Animation */
+.generating-status {
+  text-align: center;
+  padding: 40px;
+  margin-top: 20px;
+}
+
+.generating-animation {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.generating-animation .dot {
+  width: 12px;
+  height: 12px;
+  background: #667eea;
+  border-radius: 50%;
+  animation: bounce 1.4s infinite ease-in-out both;
+}
+
+.generating-animation .dot:nth-child(1) { animation-delay: -0.32s; }
+.generating-animation .dot:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes bounce {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
+}
+
+.generating-status p {
+  color: #667eea;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.generating-sub {
+  color: #999 !important;
+  font-weight: 400 !important;
+  font-size: 13px !important;
+  margin-top: 4px;
+}
+
+/* Resume Controls */
+.resume-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff;
+  padding: 16px 20px;
+  border-radius: 14px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  margin-bottom: 20px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.controls-left, .controls-right {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.control-select {
+  padding: 8px 12px;
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  background: #fafbfc;
+  cursor: pointer;
+}
+
+.control-select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+/* Resume Preview */
+.resume-preview-container {
+  display: flex;
+  justify-content: center;
+  padding: 20px 0;
+}
+
+.resume-page {
+  width: 210mm;
+  min-height: 297mm;
+  background: #fff;
+  box-shadow: 0 4px 30px rgba(0,0,0,0.12);
+  overflow: hidden;
+}
+
+@media (max-width: 900px) {
+  .resume-page {
+    width: 100%;
+    min-height: auto;
+  }
+
+  .template-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .resume-controls {
+    position: static;
+  }
+}
