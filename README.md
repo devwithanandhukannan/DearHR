@@ -18,7 +18,7 @@ Generate personalized cold emails tailored to your goals and communication style
   └── Regenerate option
 ```
 
-### ✨ Features
+### Features
 
 * Choose from multiple email types depending on your purpose.
 * Adjust tone to match your personality or company culture.
@@ -34,7 +34,7 @@ Generate personalized cold emails tailored to your goals and communication style
 Comprehensive interview preparation across aptitude, HR, technical, and behavioral rounds.
 
 ```
-🎯 Interview Preparation
+  Interview Preparation
   ├── 🧮 Aptitude Test
   │   ├── MCQ format with 4 options
   │   ├── Auto-grading on submit
@@ -78,7 +78,7 @@ Comprehensive interview preparation across aptitude, HR, technical, and behavior
 
 ---
 
-## 🛠 Purpose
+##  Purpose
 
 This platform is designed to:
 
@@ -89,7 +89,7 @@ This platform is designed to:
 
 ---
 
-## 📌 Who It's For
+##  Who It's For
 
 * Students preparing for placements
 * Job seekers applying off-campus
