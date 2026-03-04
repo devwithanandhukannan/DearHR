@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from .resume_serializers import ResumeGenerateSerializer
-from .ollama_service import collect_user_data, build_prompt, generate_with_ollama
+from .ollama_service import collect_user_data, build_prompt, generate_with_llm
 from .models import PersonalInfo
 
 
@@ -39,7 +39,7 @@ def generate_resume(request):
 
     # Generate with Ollama
     try:
-        resume_content = generate_with_ollama(prompt)
+        resume_content = generate_with_llm(prompt)
     except Exception as e:
         return Response({
             'status': 'error',
