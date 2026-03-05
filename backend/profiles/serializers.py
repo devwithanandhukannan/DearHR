@@ -6,15 +6,47 @@ from .models import (
 
 
 class PersonalInfoSerializer(serializers.ModelSerializer):
+    profile_image_url = serializers.SerializerMethodField()
+
     class Meta:
         model = PersonalInfo
         fields = [
-            'id', 'name', 'email', 'phone', 'location',
+            'name', 'email', 'phone', 'location',
             'linkedin', 'github', 'website',
-            'created_at', 'updated_at',
+            'profile_image', 'profile_image_url',
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        extra_kwargs = {
+            'profile_image': {'write_only': True, 'required': False},
+        }
 
+    def get_profile_image_url(self, obj):
+        """Return the full URL for the profile image."""
+        if obj.profile_image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.profile_image.url)
+            return obj.profile_image.url
+        return None
+
+    def validate_profile_image(self, value):
+        """Validate image size and type."""
+        if value:
+            # Max 5MB
+            max_size = 5 * 1024 * 1024
+            if value.size > max_size:
+                raise serializers.ValidationError(
+                    'Image size must be under 5MB.'
+                )
+
+            # Check file type
+            allowed_types = [
+                'image/jpeg', 'image/jpg', 'image/png', 'image/webp',
+            ]
+            if value.content_type not in allowed_types:
+                raise serializers.ValidationError(
+                    'Only JPG, PNG, and WebP images are allowed.'
+                )
+        return value
 
 class AdditionalLinkSerializer(serializers.ModelSerializer):
     class Meta:

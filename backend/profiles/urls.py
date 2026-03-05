@@ -40,7 +40,8 @@ urlpatterns = [
     path('achievements/<int:pk>/', views.achievement_detail, name='achievement_detail'),
 
     # Resume
-    path('resume/generate/', resume_views.generate_resume, name='generate_resume'),
+    # ✅ CORRECT
+    path('resume/generate/', resume_views.generate_resume_view, name='generate_resume'),
     path('resume/preview/', resume_views.resume_preview_data, name='resume_preview'),
 
     # Cold Email

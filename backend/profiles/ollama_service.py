@@ -219,6 +219,8 @@ def collect_user_data(user) -> dict[str, Any]:
             'linkedin': pi.linkedin,
             'github': pi.github,
             'website': pi.website,
+            # Profile Image URL
+            'profile_image_url': pi.profile_image.url if pi.profile_image else None,
         }
     except PersonalInfo.DoesNotExist:
         data['personal_info'] = {}
@@ -276,8 +278,6 @@ def collect_user_data(user) -> dict[str, Any]:
     )
 
     return data
-
-
 # ──────────────────────────────────────────────────────────────────────────────
 #  Response Parsing
 # ──────────────────────────────────────────────────────────────────────────────

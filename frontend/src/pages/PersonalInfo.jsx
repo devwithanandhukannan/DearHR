@@ -1,8 +1,11 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { profileAPI } from '../api/axios'
 import MessageAlert from '../components/MessageAlert'
 
-const EMPTY = { name: '', email: '', phone: '', location: '', linkedin: '', github: '', website: '' }
+const EMPTY = {
+  name: '', email: '', phone: '', location: '',
+  linkedin: '', github: '', website: '',
+}
 
 export default function PersonalInfo() {
   const [form, setForm] = useState(EMPTY)
@@ -12,97 +15,365 @@ export default function PersonalInfo() {
   const [msg, setMsg] = useState({ text: '', type: '' })
   const [errors, setErrors] = useState({})
 
+  // Image State
+  const [imagePreview, setImagePreview] = useState(null)
+  const [imageFile, setImageFile] = useState(null)
+  const [deletingImage, setDeletingImage] = useState(false)
+  const fileInputRef = useRef(null)
+
   const fetchData = useCallback(async () => {
     try {
       const res = await profileAPI.getPersonalInfo()
-      if (res.data.data) { setForm(res.data.data); setExists(true) }
-    } catch {} finally { setLoading(false) }
+      if (res.data.data) {
+        setForm({
+          name: res.data.data.name || '',
+          email: res.data.data.email || '',
+          phone: res.data.data.phone || '',
+          location: res.data.data.location || '',
+          linkedin: res.data.data.linkedin || '',
+          github: res.data.data.github || '',
+          website: res.data.data.website || '',
+        })
+        setExists(true)
+        if (res.data.data.profile_image_url) {
+          setImagePreview(res.data.data.profile_image_url)
+        }
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => { fetchData() }, [fetchData])
 
+  // Form Handlers
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value })
     setErrors({ ...errors, [e.target.name]: '' })
   }
 
+  // Image Handlers
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    // Validate on client side
+    const maxSize = 5 * 1024 * 1024 // 5MB
+    if (file.size > maxSize) {
+      setMsg({ text: 'Image must be under 5MB.', type: 'error' })
+      return
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+    if (!allowedTypes.includes(file.type)) {
+      setMsg({ text: 'Only JPG, PNG, and WebP images are allowed.', type: 'error' })
+      return
+    }
+
+    setImageFile(file)
+    setErrors({ ...errors, profile_image: '' })
+
+    // Create preview
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      setImagePreview(event.target.result)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const handleImageRemove = async () => {
+    // If image exists on server (and we haven't just selected a new file)
+    if (exists && imagePreview && !imageFile) {
+      setDeletingImage(true)
+      try {
+        await profileAPI.deleteProfileImage()
+        setImagePreview(null)
+        setImageFile(null)
+        if (fileInputRef.current) fileInputRef.current.value = ''
+        setMsg({ text: 'Profile image removed.', type: 'success' })
+      } catch {
+        setMsg({ text: 'Failed to remove image.', type: 'error' })
+      } finally {
+        setDeletingImage(false)
+      }
+      return
+    }
+
+    // If it's just a local preview (not yet saved), clear it
+    setImagePreview(null)
+    setImageFile(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  // Form Submit
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setSaving(true); setErrors({})
+    setSaving(true)
+    setErrors({})
+
     try {
+      // Always use FormData for consistency
+      const formData = new FormData()
+      
+      // Append all text fields
+      Object.entries(form).forEach(([key, value]) => {
+        formData.append(key, value || '')
+      })
+
+      // Append image file if selected
+      if (imageFile) {
+        formData.append('profile_image', imageFile)
+      }
+
+      let res
       if (exists) {
-        await profileAPI.updatePersonalInfo(form)
+        res = await profileAPI.updatePersonalInfo(formData)
         setMsg({ text: 'Personal info updated!', type: 'success' })
       } else {
-        const res = await profileAPI.createPersonalInfo(form)
-        setForm(res.data.data); setExists(true)
+        res = await profileAPI.createPersonalInfo(formData)
+        setExists(true)
         setMsg({ text: 'Personal info saved!', type: 'success' })
       }
+
+      // Update form with response data
+      if (res.data.data) {
+        setForm({
+          name: res.data.data.name || '',
+          email: res.data.data.email || '',
+          phone: res.data.data.phone || '',
+          location: res.data.data.location || '',
+          linkedin: res.data.data.linkedin || '',
+          github: res.data.data.github || '',
+          website: res.data.data.website || '',
+        })
+        if (res.data.data.profile_image_url) {
+          setImagePreview(res.data.data.profile_image_url)
+        }
+      }
+      
+      setImageFile(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
       window.dispatchEvent(new Event('refreshCounts'))
+
     } catch (err) {
+      console.error('Submit error:', err.response?.data)
       const data = err.response?.data
       if (typeof data === 'object') {
         const fe = {}
-        Object.keys(data).forEach((k) => { if (Array.isArray(data[k])) fe[k] = data[k].join(' ') })
+        Object.keys(data).forEach((k) => {
+          if (Array.isArray(data[k])) fe[k] = data[k].join(' ')
+        })
         setErrors(fe)
       }
-      setMsg({ text: err.response?.data?.message || 'Save failed.', type: 'error' })
-    } finally { setSaving(false) }
+      setMsg({
+        text: err.response?.data?.message || 'Save failed.',
+        type: 'error',
+      })
+    } finally {
+      setSaving(false)
+    }
   }
 
-  if (loading) return <div className="loading"><div className="spinner"></div>Loading...</div>
+  // Loading State
+  if (loading) {
+    return (
+      <div className="loading">
+        <div className="spinner"></div>Loading...
+      </div>
+    )
+  }
 
+  // Render
   return (
     <div>
       <div className="page-header">
-        <h2><span className="header-icon">👤</span> Personal Information</h2>
+        <h2>
+          <span className="header-icon">👤</span> Personal Information
+        </h2>
       </div>
-      <MessageAlert message={msg.text} type={msg.type} onClose={() => setMsg({ text: '', type: '' })} />
+
+      <MessageAlert
+        message={msg.text}
+        type={msg.type}
+        onClose={() => setMsg({ text: '', type: '' })}
+      />
+
       <div className="form-section">
         <h3>📋 {exists ? 'Update' : 'Add'} Your Details</h3>
+
         <form onSubmit={handleSubmit}>
+          {/* Profile Image Upload */}
+          <div className="profile-image-section">
+            <label className="section-label">Profile Photo</label>
+
+            <div className="image-upload-container">
+              {/* Preview */}
+              <div className="image-preview-wrapper">
+                {imagePreview ? (
+                  <img
+                    src={imagePreview}
+                    alt="Profile preview"
+                    className="image-preview"
+                  />
+                ) : (
+                  <div className="image-placeholder">
+                    <span className="placeholder-icon">📷</span>
+                    <span className="placeholder-text">No photo</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Controls */}
+              <div className="image-controls">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/jpeg,image/jpg,image/png,image/webp"
+                  onChange={handleImageSelect}
+                  className="file-input-hidden"
+                  id="profile-image-input"
+                />
+
+                <label
+                  htmlFor="profile-image-input"
+                  className="btn btn-secondary btn-sm"
+                >
+                  📁 {imagePreview ? 'Change Photo' : 'Upload Photo'}
+                </label>
+
+                {imagePreview && (
+                  <button
+                    type="button"
+                    className="btn btn-danger btn-sm"
+                    onClick={handleImageRemove}
+                    disabled={deletingImage}
+                  >
+                    {deletingImage ? 'Removing...' : '🗑️ Remove'}
+                  </button>
+                )}
+
+                <p className="image-help-text">
+                  JPG, PNG, or WebP. Max 5MB.
+                </p>
+
+                {errors.profile_image && (
+                  <div className="field-error">{errors.profile_image}</div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Name & Email */}
           <div className="form-row">
             <div className="form-group">
               <label>Full Name *</label>
-              <input type="text" name="name" value={form.name} onChange={handleChange} placeholder="John Doe" required />
+              <input
+                type="text"
+                name="name"
+                value={form.name}
+                onChange={handleChange}
+                placeholder="John Doe"
+                required
+              />
               {errors.name && <div className="field-error">{errors.name}</div>}
             </div>
             <div className="form-group">
               <label>Email *</label>
-              <input type="email" name="email" value={form.email} onChange={handleChange} placeholder="john@example.com" required />
+              <input
+                type="email"
+                name="email"
+                value={form.email}
+                onChange={handleChange}
+                placeholder="john@example.com"
+                required
+              />
               {errors.email && <div className="field-error">{errors.email}</div>}
             </div>
           </div>
+
+          {/* Phone & Location */}
           <div className="form-row">
             <div className="form-group">
               <label>Phone</label>
-              <input type="text" name="phone" value={form.phone} onChange={handleChange} placeholder="+1-555-0100" />
+              <input
+                type="text"
+                name="phone"
+                value={form.phone}
+                onChange={handleChange}
+                placeholder="+1-555-0100"
+              />
             </div>
             <div className="form-group">
               <label>Location</label>
-              <input type="text" name="location" value={form.location} onChange={handleChange} placeholder="San Francisco, CA" />
+              <input
+                type="text"
+                name="location"
+                value={form.location}
+                onChange={handleChange}
+                placeholder="San Francisco, CA"
+              />
             </div>
           </div>
+
+          {/* LinkedIn */}
           <div className="form-group">
             <label>LinkedIn</label>
-            <input type="url" name="linkedin" value={form.linkedin} onChange={handleChange} placeholder="https://linkedin.com/in/johndoe" />
-            {errors.linkedin && <div className="field-error">{errors.linkedin}</div>}
+            <input
+              type="url"
+              name="linkedin"
+              value={form.linkedin}
+              onChange={handleChange}
+              placeholder="https://linkedin.com/in/johndoe"
+            />
+            {errors.linkedin && (
+              <div className="field-error">{errors.linkedin}</div>
+            )}
           </div>
+
+          {/* GitHub & Website */}
           <div className="form-row">
             <div className="form-group">
               <label>GitHub</label>
-              <input type="url" name="github" value={form.github} onChange={handleChange} placeholder="https://github.com/johndoe" />
-              {errors.github && <div className="field-error">{errors.github}</div>}
+              <input
+                type="url"
+                name="github"
+                value={form.github}
+                onChange={handleChange}
+                placeholder="https://github.com/johndoe"
+              />
+              {errors.github && (
+                <div className="field-error">{errors.github}</div>
+              )}
             </div>
             <div className="form-group">
               <label>Website</label>
-              <input type="url" name="website" value={form.website} onChange={handleChange} placeholder="https://johndoe.dev" />
-              {errors.website && <div className="field-error">{errors.website}</div>}
+              <input
+                type="url"
+                name="website"
+                value={form.website}
+                onChange={handleChange}
+                placeholder="https://johndoe.dev"
+              />
+              {errors.website && (
+                <div className="field-error">{errors.website}</div>
+              )}
             </div>
           </div>
+
+          {/* Submit */}
           <div className="btn-group">
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Saving...' : exists ? '💾 Update Info' : '💾 Save Info'}
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={saving}
+            >
+              {saving
+                ? 'Saving...'
+                : exists
+                  ? '💾 Update Info'
+                  : '💾 Save Info'}
             </button>
           </div>
         </form>

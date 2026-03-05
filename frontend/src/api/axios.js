@@ -38,10 +38,33 @@ export const authAPI = {
 
 export const profileAPI = {
   dashboard: () => API.get('/dashboard/'),
+
   getPersonalInfo: () => API.get('/personal-info/'),
-  createPersonalInfo: (data) => API.post('/personal-info/', data),
-  updatePersonalInfo: (data) => API.put('/personal-info/', data),
-  patchPersonalInfo: (data) => API.patch('/personal-info/', data),
+
+  createPersonalInfo: (data) => {
+    const config = data instanceof FormData 
+      ? { headers: { 'Content-Type': 'multipart/form-data' } }
+      : {}
+    return API.post('/personal-info/', data, config)
+  },
+
+  updatePersonalInfo: (data) => {
+    const config = data instanceof FormData 
+      ? { headers: { 'Content-Type': 'multipart/form-data' } }
+      : {}
+    return API.put('/personal-info/', data, config)
+  },
+
+  patchPersonalInfo: (data) => {
+    const config = data instanceof FormData 
+      ? { headers: { 'Content-Type': 'multipart/form-data' } }
+      : {}
+    return API.patch('/personal-info/', data, config)
+  },
+
+  deleteProfileImage: () => API.delete('/personal-info/delete-image/'),
+
+  // Generic CRUD
   list: (resource) => API.get(`/${resource}/`),
   create: (resource, data) => API.post(`/${resource}/`, data),
   get: (resource, id) => API.get(`/${resource}/${id}/`),

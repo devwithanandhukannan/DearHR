@@ -17,6 +17,7 @@ import AdditionalLinks from './pages/AdditionalLinks'
 import GenerateResume from './pages/GenerateResume'
 import ColdEmail from './pages/ColdEmail'
 import InterviewPrep from './pages/InterviewPrep'
+import ResumeEditor from './pages/ResumeEditor'
 
 function PublicRoute({ children }) {
   const { user, loading } = useAuth()
@@ -45,6 +46,7 @@ function AppRoutes() {
       <Route path="/achievements" element={<P><Achievements /></P>} />
       <Route path="/additional-links" element={<P><AdditionalLinks /></P>} />
       <Route path="/generate-resume" element={<P><GenerateResume /></P>} />
+      <Route path="/resume-editor" element={<ResumeEditor />} />
       <Route path="/cold-email" element={<P><ColdEmail /></P>} />
       <Route path="/interview-prep" element={<P><InterviewPrep /></P>} />
       <Route path="*" element={<Navigate to="/" replace />} />

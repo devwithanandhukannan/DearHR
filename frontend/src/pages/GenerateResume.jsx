@@ -2,6 +2,9 @@ import { useState, useRef } from 'react'
 import { resumeAPI } from '../api/axios'
 import MessageAlert from '../components/MessageAlert'
 import html2pdf from 'html2pdf.js'
+import { useNavigate } from 'react-router-dom'
+
+
 
 const TEMPLATES = [
   { value: 'classic', label: '📄 Classic', desc: 'Traditional single-column' },
@@ -27,6 +30,7 @@ const FONTS = [
 ]
 
 export default function GenerateResume() {
+  const navigate = useNavigate()
   const [step, setStep] = useState(1)
   const [form, setForm] = useState({
     job_description: '',
@@ -39,6 +43,7 @@ export default function GenerateResume() {
   const [style, setStyle] = useState({ template: 'modern', color_scheme: 'blue', font_style: 'inter' })
   const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState({ text: '', type: '' })
+  const [showPhoto, setShowPhoto] = useState(true) // Toggle for photo
   const resumeRef = useRef(null)
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value })
@@ -55,12 +60,17 @@ export default function GenerateResume() {
 
     try {
       const res = await resumeAPI.generate(form)
+      // DEBUG: Log the response to see the profile image URL
+      console.log('=== Resume Data ===')
+      console.log('Personal Info:', res.data.resume_data?.personal_info)
+      console.log('Profile Image URL:', res.data.resume_data?.personal_info?.profile_image_url)
+
       setResumeData(res.data.resume_data)
       setStyle(res.data.style)
       setStep(3)
       setMsg({ text: 'Resume generated successfully!', type: 'success' })
     } catch (err) {
-      const errMsg = err.response?.data?.message || 'Generation failed. Is Ollama running?'
+      const errMsg = err.response?.data?.message || 'Generation failed. Please try again.'
       setMsg({ text: errMsg, type: 'error' })
     } finally {
       setLoading(false)
@@ -77,7 +87,12 @@ export default function GenerateResume() {
       margin: 0,
       filename: `${name.replace(/\s+/g, '_')}_Resume.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        letterRendering: true,
+      },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
     }
 
@@ -86,7 +101,12 @@ export default function GenerateResume() {
 
   const getColor = () => COLORS.find(c => c.value === style.color_scheme)?.hex || '#2563eb'
   const getFont = () => {
-    const fonts = { inter: "'Inter', sans-serif", georgia: "'Georgia', serif", roboto: "'Roboto', sans-serif", merriweather: "'Merriweather', serif" }
+    const fonts = {
+      inter: "'Inter', sans-serif",
+      georgia: "'Georgia', serif",
+      roboto: "'Roboto', sans-serif",
+      merriweather: "'Merriweather', serif"
+    }
     return fonts[style.font_style] || fonts.inter
   }
 
@@ -236,8 +256,20 @@ export default function GenerateResume() {
             <div className="controls-left">
               <button className="btn btn-secondary" onClick={() => setStep(2)}>← Back to Style</button>
               <button className="btn btn-secondary" onClick={() => setStep(1)}>✏️ Edit Details</button>
+              <button className="btn btn-secondary" onClick={() => navigate('/resume-editor', { state: { resumeData, style } })}>✏️ Edit in Editor</button>
             </div>
             <div className="controls-right">
+              {/* Photo Toggle */}
+              {resumeData?.personal_info?.profile_image_url && (
+                <label className="photo-toggle">
+                  <input
+                    type="checkbox"
+                    checked={showPhoto}
+                    onChange={(e) => setShowPhoto(e.target.checked)}
+                  />
+                  <span>📷 Show Photo</span>
+                </label>
+              )}
               {/* Live style changers */}
               <select value={style.template} onChange={(e) => setStyle({ ...style, template: e.target.value })} className="control-select">
                 {TEMPLATES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -255,10 +287,10 @@ export default function GenerateResume() {
           {/* Resume Preview */}
           <div className="resume-preview-container">
             <div ref={resumeRef}>
-              {style.template === 'modern' && <ModernTemplate data={resumeData} color={getColor()} font={getFont()} />}
-              {style.template === 'classic' && <ClassicTemplate data={resumeData} color={getColor()} font={getFont()} />}
-              {style.template === 'minimal' && <MinimalTemplate data={resumeData} color={getColor()} font={getFont()} />}
-              {style.template === 'executive' && <ExecutiveTemplate data={resumeData} color={getColor()} font={getFont()} />}
+              {style.template === 'modern' && <ModernTemplate data={resumeData} color={getColor()} font={getFont()} showPhoto={showPhoto} />}
+              {style.template === 'classic' && <ClassicTemplate data={resumeData} color={getColor()} font={getFont()} showPhoto={showPhoto} />}
+              {style.template === 'minimal' && <MinimalTemplate data={resumeData} color={getColor()} font={getFont()} showPhoto={showPhoto} />}
+              {style.template === 'executive' && <ExecutiveTemplate data={resumeData} color={getColor()} font={getFont()} showPhoto={showPhoto} />}
             </div>
           </div>
         </div>
@@ -269,18 +301,66 @@ export default function GenerateResume() {
 
 
 /* ══════════════════════════════════════════
-   RESUME TEMPLATES
+   PROFILE PHOTO COMPONENT
    ══════════════════════════════════════════ */
 
-function ModernTemplate({ data, color, font }) {
+function ProfilePhoto({ url, size = 80, borderColor = '#fff', style: customStyle = {} }) {
+  if (!url) return null
+
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        overflow: 'hidden',
+        border: `3px solid ${borderColor}`,
+        flexShrink: 0,
+        background: '#f0f0f0',
+        ...customStyle,
+      }}
+    >
+      <img
+        src={url}
+        alt="Profile"
+        crossOrigin="anonymous"
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+        }}
+      />
+    </div>
+  )
+}
+
+
+/* ══════════════════════════════════════════
+   RESUME TEMPLATES WITH PHOTOS
+   ══════════════════════════════════════════ */
+
+function ModernTemplate({ data, color, font, showPhoto }) {
   const pi = data.personal_info || {}
-  const c = data.content || {}
+  const c = data.content || data || {}
 
   return (
     <div className="resume-page" style={{ fontFamily: font, display: 'flex' }}>
       {/* Sidebar */}
       <div style={{ width: '35%', background: color, color: '#fff', padding: '30px 20px' }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4, lineHeight: 1.3 }}>{pi.name || 'Your Name'}</h1>
+        {/* Profile Photo */}
+        {showPhoto && pi.profile_image_url && (
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+            <ProfilePhoto
+              url={pi.profile_image_url}
+              size={100}
+              borderColor="rgba(255,255,255,0.8)"
+            />
+          </div>
+        )}
+
+        <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4, lineHeight: 1.3, textAlign: showPhoto && pi.profile_image_url ? 'center' : 'left' }}>
+          {pi.name || 'Your Name'}
+        </h1>
         <div style={{ fontSize: 10, marginBottom: 20, opacity: 0.9 }}>
           {pi.email && <div>📧 {pi.email}</div>}
           {pi.phone && <div>📱 {pi.phone}</div>}
@@ -297,7 +377,7 @@ function ModernTemplate({ data, color, font }) {
             {Object.entries(c.skills_grouped).map(([cat, skills]) => (
               <div key={cat} style={{ marginBottom: 8 }}>
                 <div style={{ fontSize: 10, fontWeight: 600, opacity: 0.8, marginBottom: 3 }}>{cat}</div>
-                <div style={{ fontSize: 9, lineHeight: 1.6 }}>{skills.join(' • ')}</div>
+                <div style={{ fontSize: 9, lineHeight: 1.6 }}>{Array.isArray(skills) ? skills.join(' • ') : skills}</div>
               </div>
             ))}
           </div>
@@ -405,21 +485,39 @@ function ModernTemplate({ data, color, font }) {
 }
 
 
-function ClassicTemplate({ data, color, font }) {
+function ClassicTemplate({ data, color, font, showPhoto }) {
   const pi = data.personal_info || {}
-  const c = data.content || {}
+  const c = data.content || data || {}
 
   return (
     <div className="resume-page" style={{ fontFamily: font, padding: '30px 36px' }}>
       {/* Header */}
-      <div style={{ textAlign: 'center', borderBottom: `3px solid ${color}`, paddingBottom: 14, marginBottom: 18 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 700, color, marginBottom: 6 }}>{pi.name || 'Your Name'}</h1>
-        <div style={{ fontSize: 10, color: '#666', display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap' }}>
-          {pi.email && <span>📧 {pi.email}</span>}
-          {pi.phone && <span>📱 {pi.phone}</span>}
-          {pi.location && <span>📍 {pi.location}</span>}
-          {pi.linkedin && <span>🔗 LinkedIn</span>}
-          {pi.github && <span>💻 GitHub</span>}
+      <div style={{
+        borderBottom: `3px solid ${color}`,
+        paddingBottom: 14,
+        marginBottom: 18,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 20,
+      }}>
+        {/* Profile Photo */}
+        {showPhoto && pi.profile_image_url && (
+          <ProfilePhoto
+            url={pi.profile_image_url}
+            size={70}
+            borderColor={color}
+          />
+        )}
+
+        <div style={{ flex: 1, textAlign: showPhoto && pi.profile_image_url ? 'left' : 'center' }}>
+          <h1 style={{ fontSize: 26, fontWeight: 700, color, marginBottom: 6 }}>{pi.name || 'Your Name'}</h1>
+          <div style={{ fontSize: 10, color: '#666', display: 'flex', justifyContent: showPhoto && pi.profile_image_url ? 'flex-start' : 'center', gap: 12, flexWrap: 'wrap' }}>
+            {pi.email && <span>📧 {pi.email}</span>}
+            {pi.phone && <span>📱 {pi.phone}</span>}
+            {pi.location && <span>📍 {pi.location}</span>}
+            {pi.linkedin && <span>🔗 LinkedIn</span>}
+            {pi.github && <span>💻 GitHub</span>}
+          </div>
         </div>
       </div>
 
@@ -468,7 +566,7 @@ function ClassicTemplate({ data, color, font }) {
           <h2 style={{ fontSize: 13, color, textTransform: 'uppercase', letterSpacing: 1, borderBottom: `1px solid ${color}`, paddingBottom: 3, marginBottom: 6 }}>Skills</h2>
           {Object.entries(c.skills_grouped).map(([cat, skills]) => (
             <div key={cat} style={{ fontSize: 10, marginBottom: 3 }}>
-              <strong>{cat}:</strong> {skills.join(', ')}
+              <strong>{cat}:</strong> {Array.isArray(skills) ? skills.join(', ') : skills}
             </div>
           ))}
         </div>
@@ -500,17 +598,39 @@ function ClassicTemplate({ data, color, font }) {
 }
 
 
-function MinimalTemplate({ data, color, font }) {
+function MinimalTemplate({ data, color, font, showPhoto }) {
   const pi = data.personal_info || {}
-  const c = data.content || {}
+  const c = data.content || data || {}
 
   return (
     <div className="resume-page" style={{ fontFamily: font, padding: '40px 44px' }}>
-      <h1 style={{ fontSize: 28, fontWeight: 300, color: '#222', marginBottom: 4, letterSpacing: 1 }}>{pi.name || 'Your Name'}</h1>
-      <div style={{ fontSize: 10, color: '#888', marginBottom: 20, display: 'flex', gap: 16, flexWrap: 'wrap', borderBottom: `1px solid #eee`, paddingBottom: 14 }}>
-        {pi.email && <span>{pi.email}</span>}
-        {pi.phone && <span>{pi.phone}</span>}
-        {pi.location && <span>{pi.location}</span>}
+      {/* Header with optional photo */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 24,
+        borderBottom: '1px solid #eee',
+        paddingBottom: 14,
+        marginBottom: 20,
+      }}>
+        {showPhoto && pi.profile_image_url && (
+          <ProfilePhoto
+            url={pi.profile_image_url}
+            size={70}
+            borderColor="#ddd"
+          />
+        )}
+
+        <div style={{ flex: 1 }}>
+          <h1 style={{ fontSize: 28, fontWeight: 300, color: '#222', marginBottom: 4, letterSpacing: 1 }}>
+            {pi.name || 'Your Name'}
+          </h1>
+          <div style={{ fontSize: 10, color: '#888', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+            {pi.email && <span>{pi.email}</span>}
+            {pi.phone && <span>{pi.phone}</span>}
+            {pi.location && <span>{pi.location}</span>}
+          </div>
+        </div>
       </div>
 
       {c.professional_summary && (
@@ -568,18 +688,40 @@ function MinimalTemplate({ data, color, font }) {
 }
 
 
-function ExecutiveTemplate({ data, color, font }) {
+function ExecutiveTemplate({ data, color, font, showPhoto }) {
   const pi = data.personal_info || {}
-  const c = data.content || {}
+  const c = data.content || data || {}
 
   return (
     <div className="resume-page" style={{ fontFamily: font, padding: 0 }}>
       {/* Header Banner */}
-      <div style={{ background: color, color: '#fff', padding: '28px 36px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
+      <div style={{
+        background: color,
+        color: '#fff',
+        padding: '28px 36px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: 20,
+      }}>
+        {/* Photo on the left */}
+        {showPhoto && pi.profile_image_url && (
+          <ProfilePhoto
+            url={pi.profile_image_url}
+            size={80}
+            borderColor="rgba(255,255,255,0.9)"
+          />
+        )}
+
+        <div style={{ flex: 1 }}>
           <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 2 }}>{pi.name || 'Your Name'}</h1>
-          {c.professional_summary && <p style={{ fontSize: 9, opacity: 0.9, maxWidth: 420, lineHeight: 1.5 }}>{c.professional_summary.substring(0, 200)}...</p>}
+          {c.professional_summary && (
+            <p style={{ fontSize: 9, opacity: 0.9, maxWidth: 420, lineHeight: 1.5 }}>
+              {c.professional_summary.substring(0, 150)}...
+            </p>
+          )}
         </div>
+
         <div style={{ fontSize: 9, textAlign: 'right', opacity: 0.9 }}>
           {pi.email && <div>{pi.email}</div>}
           {pi.phone && <div>{pi.phone}</div>}
@@ -600,7 +742,9 @@ function ExecutiveTemplate({ data, color, font }) {
             {c.experience.map((exp, i) => (
               <div key={i} style={{ marginBottom: 14, paddingLeft: 12, borderLeft: `2px solid ${color}20` }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: '#222' }}>{exp.role}</div>
-                <div style={{ fontSize: 10, color, fontWeight: 600 }}>{exp.company} <span style={{ color: '#888', fontWeight: 400 }}>| {exp.start_date} – {exp.end_date}</span></div>
+                <div style={{ fontSize: 10, color, fontWeight: 600 }}>
+                  {exp.company} <span style={{ color: '#888', fontWeight: 400 }}>| {exp.start_date} – {exp.end_date}</span>
+                </div>
                 <ul style={{ fontSize: 9, lineHeight: 1.7, color: '#444', paddingLeft: 14, margin: '4px 0 0' }}>
                   {exp.bullets?.map((b, j) => <li key={j}>{b}</li>)}
                 </ul>
@@ -643,7 +787,7 @@ function ExecutiveTemplate({ data, color, font }) {
                 {Object.entries(c.skills_grouped).map(([cat, skills]) => (
                   <div key={cat} style={{ marginBottom: 6 }}>
                     <div style={{ fontSize: 9, fontWeight: 700, color }}>{cat}</div>
-                    <div style={{ fontSize: 9, color: '#444' }}>{skills.join(', ')}</div>
+                    <div style={{ fontSize: 9, color: '#444' }}>{Array.isArray(skills) ? skills.join(', ') : skills}</div>
                   </div>
                 ))}
               </div>

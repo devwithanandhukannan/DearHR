@@ -1,18 +1,35 @@
-from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.response import Response
+import os
+
+from rest_framework.decorators import (
+    api_view,
+    permission_classes,
+    parser_classes,
+)
 from rest_framework.permissions import IsAuthenticated
-from django.shortcuts import get_object_or_404
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from rest_framework.response import Response
+from rest_framework import status
+
 from .models import (
-    PersonalInfo, AdditionalLink, Education,
-    Experience, Skill, Project, Certification, Achievement,
+    PersonalInfo,
+    AdditionalLink,
+    Education,
+    Experience,
+    Skill,
+    Project,
+    Certification,
+    Achievement,
 )
 from .serializers import (
-    PersonalInfoSerializer, AdditionalLinkSerializer, EducationSerializer,
-    ExperienceSerializer, SkillSerializer, ProjectSerializer,
-    CertificationSerializer, AchievementSerializer,
+    PersonalInfoSerializer,
+    AdditionalLinkSerializer,
+    EducationSerializer,
+    ExperienceSerializer,
+    SkillSerializer,
+    ProjectSerializer,
+    CertificationSerializer,
+    AchievementSerializer,
 )
-
 
 # ──────────────────────────────────────────────
 # DASHBOARD
@@ -42,21 +59,27 @@ def dashboard(request):
 # ──────────────────────────────────────────────
 @api_view(['GET', 'POST', 'PUT', 'PATCH'])
 @permission_classes([IsAuthenticated])
+@parser_classes([MultiPartParser, FormParser, JSONParser])
 def personal_info(request):
     """
     GET   — retrieve
     POST  — create (first time)
     PUT   — full update
     PATCH — partial update
+
+    Accepts both JSON and multipart/form-data (for image uploads).
     """
     user = request.user
 
     if request.method == 'GET':
         try:
             obj = PersonalInfo.objects.get(user=user)
+            serializer = PersonalInfoSerializer(
+                obj, context={'request': request}
+            )
             return Response({
                 'status': 'success',
-                'data': PersonalInfoSerializer(obj).data,
+                'data': serializer.data,
             })
         except PersonalInfo.DoesNotExist:
             return Response({
@@ -72,7 +95,9 @@ def personal_info(request):
                 'message': 'Already exists. Use PUT or PATCH to update.',
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer = PersonalInfoSerializer(data=request.data)
+        serializer = PersonalInfoSerializer(
+            data=request.data, context={'request': request}
+        )
         serializer.is_valid(raise_exception=True)
         serializer.save(user=user)
         return Response({
@@ -91,7 +116,10 @@ def personal_info(request):
         }, status=status.HTTP_404_NOT_FOUND)
 
     partial = request.method == 'PATCH'
-    serializer = PersonalInfoSerializer(obj, data=request.data, partial=partial)
+    serializer = PersonalInfoSerializer(
+        obj, data=request.data, partial=partial,
+        context={'request': request},
+    )
     serializer.is_valid(raise_exception=True)
     serializer.save()
     return Response({
@@ -100,6 +128,31 @@ def personal_info(request):
         'data': serializer.data,
     })
 
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_profile_image(request):
+    """Remove profile image without deleting other personal info."""
+    try:
+        obj = PersonalInfo.objects.get(user=request.user)
+    except PersonalInfo.DoesNotExist:
+        return Response(
+            {'status': 'error', 'message': 'Personal info not found.'},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    if obj.profile_image:
+        # Delete the file from disk
+        import os
+        if os.path.isfile(obj.profile_image.path):
+            os.remove(obj.profile_image.path)
+        obj.profile_image = None
+        obj.save()
+
+    return Response({
+        'status': 'success',
+        'message': 'Profile image removed.',
+    })
 
 # ──────────────────────────────────────────────
 # GENERIC HELPERS for Many-to-One models
