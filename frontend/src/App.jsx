@@ -18,11 +18,12 @@ import GenerateResume from './pages/GenerateResume'
 import ColdEmail from './pages/ColdEmail'
 import InterviewPrep from './pages/InterviewPrep'
 import ResumeEditor from './pages/ResumeEditor'
+import Homepage from './pages/Homepage'
 
 function PublicRoute({ children }) {
   const { user, loading } = useAuth()
   if (loading) return <div className="loading"><div className="spinner"></div>Loading...</div>
-  if (user) return <Navigate to="/" replace />
+  if (user) return <Navigate to="/dashboard" replace />
   return children
 }
 
@@ -33,10 +34,16 @@ function P({ children }) {
 function AppRoutes() {
   return (
     <Routes>
+
+      {/* Homepage first */}
+      <Route path="/" element={<Homepage />} />
+
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
       <Route path="/forgot-password" element={<PublicRoute><ForgotPassword /></PublicRoute>} />
-      <Route path="/" element={<P><Dashboard /></P>} />
+
+      {/* Protected routes */}
+      <Route path="/dashboard" element={<P><Dashboard /></P>} />
       <Route path="/personal-info" element={<P><PersonalInfo /></P>} />
       <Route path="/education" element={<P><Education /></P>} />
       <Route path="/experience" element={<P><Experience /></P>} />
@@ -49,7 +56,9 @@ function AppRoutes() {
       <Route path="/resume-editor" element={<ResumeEditor />} />
       <Route path="/cold-email" element={<P><ColdEmail /></P>} />
       <Route path="/interview-prep" element={<P><InterviewPrep /></P>} />
+
       <Route path="*" element={<Navigate to="/" replace />} />
+
     </Routes>
   )
 }
