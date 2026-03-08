@@ -171,16 +171,19 @@ TARGET JOB DESCRIPTION:
 INSTRUCTIONS:
 =============
 1. Create a professional summary (3-4 lines) tailored to the job description.
-2. Rewrite experience bullet points using the STAR method with quantifiable
-   metrics where possible.
-3. Prioritize and reorder skills matching the job description keywords.
-4. Highlight relevant projects and certifications.
-5. Use strong action verbs: Led, Developed, Implemented, Optimized,
-   Architected, Spearheaded, Streamlined, etc.
-6. Include ATS keywords from the job description naturally.
-7. Keep descriptions concise but impactful.
-8. If candidate data is missing for a section, return an empty list/object for
-   that section — do NOT fabricate information.
+2. Rewrite experience bullet points using the STAR method with quantifiable metrics.
+3. Prioritize skills matching the job description.
+4. Include ALL education entries from the candidate information.
+5. Do NOT remove or summarize education entries.
+6. Format education dates as "Month Year - Month Year".
+7. Highlight relevant projects and certifications.
+8. Use strong action verbs.
+9. Include ATS keywords from the job description.
+10. If candidate data is missing for a section, return empty lists.
+
+IMPORTANT:
+Do NOT omit any education, experience, project, certification, or achievement entries.
+Preserve ALL entries from the candidate data.
 
 RESPOND IN THIS EXACT JSON FORMAT ONLY.
 No markdown, no code fences, no explanation — ONLY pure valid JSON:

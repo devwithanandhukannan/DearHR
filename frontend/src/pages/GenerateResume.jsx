@@ -365,9 +365,9 @@ function ModernTemplate({ data, color, font, showPhoto }) {
           {pi.email && <div>📧 {pi.email}</div>}
           {pi.phone && <div>📱 {pi.phone}</div>}
           {pi.location && <div>📍 {pi.location}</div>}
-          {pi.linkedin && <div>🔗 LinkedIn</div>}
-          {pi.github && <div>💻 GitHub</div>}
-          {pi.website && <div>🌐 Website</div>}
+          {pi.linkedin && <div>🔗 {pi.linkedin}</div>}
+          {pi.github && <div>💻 {pi.github}</div>}
+          {pi.website && <div>🌐 {pi.website}</div>}
         </div>
 
         {/* Skills */}
