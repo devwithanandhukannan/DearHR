@@ -19,7 +19,6 @@
   pointer-events: auto;
 }
 
-/* Editable Text */
 .editable-text {
   cursor: text;
   border-radius: 2px;
@@ -37,7 +36,6 @@
   font-style: italic;
 }
 
-/* Editable Input (active editing) */
 .editable-input {
   border: 1px solid #2563eb;
   border-radius: 3px;
@@ -57,7 +55,6 @@ textarea.editable-input {
   line-height: 1.6;
 }
 
-/* Remove Button */
 .remove-btn {
   position: absolute;
   top: -6px;
@@ -88,7 +85,6 @@ textarea.editable-input {
   transform: scale(1.15);
 }
 
-/* Light variant for dark backgrounds (sidebar) */
 .remove-btn-light {
   background: rgba(255, 255, 255, 0.3);
   color: #fff;
@@ -153,7 +149,6 @@ textarea.editable-input {
   margin: 0;
 }
 
-/* Zoom Controls */
 .zoom-controls {
   display: flex;
   align-items: center;
@@ -187,14 +182,16 @@ textarea.editable-input {
   color: #334155;
 }
 
-/* Editor Main Area */
 .editor-main {
   display: flex;
   flex: 1;
   overflow: hidden;
 }
 
-/* Left Sidebar */
+/* ═══════════════════════════════════════════
+   LEFT SIDEBAR
+   ═══════════════════════════════════════════ */
+
 .editor-sidebar {
   width: 260px;
   background: #fff;
@@ -229,7 +226,6 @@ textarea.editable-input {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-/* Sidebar Tabs */
 .sidebar-tabs {
   display: flex;
   border-bottom: 1px solid #e2e8f0;
@@ -258,7 +254,6 @@ textarea.editable-input {
   background: #f8fafc;
 }
 
-/* Sidebar Panel */
 .sidebar-panel {
   padding: 12px;
   overflow-y: auto;
@@ -286,7 +281,6 @@ textarea.editable-input {
   text-align: center;
 }
 
-/* Template Selector */
 .template-selector {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -312,7 +306,6 @@ textarea.editable-input {
   background: #eff6ff;
 }
 
-/* Color Selector */
 .color-selector {
   display: flex;
   gap: 6px;
@@ -337,7 +330,6 @@ textarea.editable-input {
   box-shadow: 0 0 0 2px #fff, 0 0 0 4px #1e293b;
 }
 
-/* Panel Select */
 .panel-select {
   width: 100%;
   padding: 6px 8px;
@@ -347,7 +339,6 @@ textarea.editable-input {
   background: #fff;
 }
 
-/* Size Buttons */
 .size-buttons {
   display: flex;
   gap: 4px;
@@ -370,7 +361,6 @@ textarea.editable-input {
   border-color: #2563eb;
 }
 
-/* Toggle Row */
 .toggle-row {
   display: flex;
   align-items: center;
@@ -379,7 +369,7 @@ textarea.editable-input {
   cursor: pointer;
 }
 
-/* Sections List (drag & drop) */
+/* Sections List */
 .sections-list {
   display: flex;
   flex-direction: column;
@@ -470,7 +460,47 @@ textarea.editable-input {
   color: #2563eb;
 }
 
-/* Canvas Area */
+/* Added Items in Sidebar */
+.panel-added-items {
+  margin-top: 8px;
+}
+
+.added-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: #334155;
+}
+
+.added-item button {
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: #ef4444;
+  color: #fff;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.added-item button:hover {
+  background: #dc2626;
+}
+
+/* ═══════════════════════════════════════════
+   CANVAS
+   ═══════════════════════════════════════════ */
+
 .editor-canvas {
   flex: 1;
   overflow: auto;
@@ -489,7 +519,10 @@ textarea.editable-input {
   margin: 0 auto;
 }
 
-/* Right Properties Panel */
+/* ═══════════════════════════════════════════
+   RIGHT PROPERTIES PANEL
+   ═══════════════════════════════════════════ */
+
 .editor-properties {
   width: 260px;
   background: #fff;
@@ -549,7 +582,65 @@ textarea.editable-input {
   line-height: 1.5;
 }
 
-/* Loading State */
+.prop-remove-btn {
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.prop-remove-btn:hover {
+  background: #dc2626;
+}
+
+.prop-add-btn {
+  width: 100%;
+  padding: 6px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 4px;
+  background: #f8fafc;
+  cursor: pointer;
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 4px;
+  transition: all 0.2s;
+}
+
+.prop-add-btn:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+  background: #eff6ff;
+}
+
+/* Add item button inside resume */
+.add-item-btn {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.resume-page.editable:hover .add-item-btn {
+  opacity: 0.6;
+}
+
+.add-item-btn:hover {
+  opacity: 1 !important;
+  background: rgba(37, 99, 235, 0.05) !important;
+  border-color: #2563eb !important;
+  color: #2563eb !important;
+}
+
+/* ═══════════════════════════════════════════
+   LOADING
+   ═══════════════════════════════════════════ */
+
 .editor-loading {
   display: flex;
   flex-direction: column;
@@ -570,7 +661,9 @@ textarea.editable-input {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ═══════════════════════════════════════════
@@ -593,7 +686,8 @@ textarea.editable-input {
   .editor-toolbar,
   .editor-sidebar,
   .editor-properties,
-  .remove-btn {
+  .remove-btn,
+  .add-item-btn {
     display: none !important;
   }
 

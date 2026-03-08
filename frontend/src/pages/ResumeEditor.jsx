@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { profileAPI } from '../api/axios'
 import MessageAlert from '../components/MessageAlert'
@@ -65,7 +65,6 @@ export default function ResumeEditor() {
   const location = useLocation()
   const resumeRef = useRef(null)
 
-  // Get initial data from navigation state (from GenerateResume) or start fresh
   const initialData = location.state?.resumeData || null
   const initialStyle = location.state?.style || {
     template: 'modern',
@@ -78,13 +77,11 @@ export default function ResumeEditor() {
   const [loading, setLoading] = useState(!initialData)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState({ text: '', type: '' })
-  
-  // Style settings
+
   const [style, setStyle] = useState(initialStyle)
   const [showPhoto, setShowPhoto] = useState(true)
   const [showSidebar, setShowSidebar] = useState(true)
-  
-  // Resume data (editable)
+
   const [resumeData, setResumeData] = useState(initialData || {
     personal_info: {},
     professional_summary: '',
@@ -100,7 +97,6 @@ export default function ResumeEditor() {
     additional_links: [],
   })
 
-  // Section visibility & order
   const [sections, setSections] = useState([
     { id: 'summary', visible: true },
     { id: 'experience', visible: true },
@@ -111,13 +107,10 @@ export default function ResumeEditor() {
     { id: 'achievements', visible: true },
   ])
 
-  // Active editing
-  const [activeSection, setActiveSection] = useState(null)
   const [editingField, setEditingField] = useState(null)
   const [zoom, setZoom] = useState(100)
-  
-  // Sidebar panel
-  const [activePanel, setActivePanel] = useState('style') // style, sections, elements
+  const [activePanel, setActivePanel] = useState('style')
+  const [draggedSection, setDraggedSection] = useState(null)
 
   // ─── Load user data if no initial data ───
   useEffect(() => {
@@ -131,8 +124,7 @@ export default function ResumeEditor() {
     try {
       const res = await profileAPI.getPersonalInfo()
       const pi = res.data.data || {}
-      
-      // Load all sections
+
       const [eduRes, expRes, skillRes, projRes, certRes, achRes, linkRes] = await Promise.all([
         profileAPI.list('education'),
         profileAPI.list('experience'),
@@ -143,7 +135,6 @@ export default function ResumeEditor() {
         profileAPI.list('additional-links'),
       ])
 
-      // Group skills by category
       const skills = skillRes.data.data || []
       const skillsGrouped = skills.reduce((acc, skill) => {
         const cat = skill.category || 'Other'
@@ -193,7 +184,10 @@ export default function ResumeEditor() {
   const getFont = () => FONTS.find(f => f.value === style.font_style)?.family || "'Inter', sans-serif"
   const getFontScale = () => FONT_SIZES.find(f => f.value === style.font_size)?.scale || 1
 
-  // ─── Update Handlers ───
+  // ══════════════════════════════════════════════════════════════════════
+  // UPDATE HANDLERS
+  // ══════════════════════════════════════════════════════════════════════
+
   const updatePersonalInfo = (field, value) => {
     setResumeData(prev => ({
       ...prev,
@@ -205,6 +199,7 @@ export default function ResumeEditor() {
     setResumeData(prev => ({ ...prev, professional_summary: value }))
   }
 
+  // ─── Experience ───
   const updateExperience = (index, field, value) => {
     setResumeData(prev => {
       const updated = [...prev.experience]
@@ -237,6 +232,7 @@ export default function ResumeEditor() {
     }))
   }
 
+  // ─── Education ───
   const updateEducation = (index, field, value) => {
     setResumeData(prev => {
       const updated = [...prev.education]
@@ -265,6 +261,7 @@ export default function ResumeEditor() {
     }))
   }
 
+  // ─── Skills ───
   const updateSkillCategory = (oldCat, newCat) => {
     setResumeData(prev => {
       const skills = { ...prev.skills_grouped }
@@ -298,6 +295,7 @@ export default function ResumeEditor() {
     })
   }
 
+  // ─── Projects ───
   const updateProject = (index, field, value) => {
     setResumeData(prev => {
       const updated = [...prev.projects]
@@ -325,8 +323,69 @@ export default function ResumeEditor() {
     }))
   }
 
-  // ─── Section Reorder (Drag & Drop) ───
-  const [draggedSection, setDraggedSection] = useState(null)
+  // ─── Languages ───
+  const addLanguage = () => {
+    setResumeData(prev => ({
+      ...prev,
+      languages: [...(prev.languages || []), { name: 'English', proficiency: 'Fluent' }]
+    }))
+    setSections(prev => {
+      const exists = prev.find(s => s.id === 'languages')
+      if (exists) {
+        return prev.map(s => s.id === 'languages' ? { ...s, visible: true } : s)
+      }
+      return [...prev, { id: 'languages', visible: true }]
+    })
+  }
+
+  const updateLanguage = (index, field, value) => {
+    setResumeData(prev => {
+      const updated = [...(prev.languages || [])]
+      updated[index] = { ...updated[index], [field]: value }
+      return { ...prev, languages: updated }
+    })
+  }
+
+  const removeLanguage = (index) => {
+    setResumeData(prev => ({
+      ...prev,
+      languages: (prev.languages || []).filter((_, i) => i !== index)
+    }))
+  }
+
+  // ─── Interests ───
+  const addInterest = () => {
+    setResumeData(prev => ({
+      ...prev,
+      interests: [...(prev.interests || []), 'New Interest']
+    }))
+    setSections(prev => {
+      const exists = prev.find(s => s.id === 'interests')
+      if (exists) {
+        return prev.map(s => s.id === 'interests' ? { ...s, visible: true } : s)
+      }
+      return [...prev, { id: 'interests', visible: true }]
+    })
+  }
+
+  const updateInterest = (index, value) => {
+    setResumeData(prev => {
+      const updated = [...(prev.interests || [])]
+      updated[index] = value
+      return { ...prev, interests: updated }
+    })
+  }
+
+  const removeInterest = (index) => {
+    setResumeData(prev => ({
+      ...prev,
+      interests: (prev.interests || []).filter((_, i) => i !== index)
+    }))
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // SECTION REORDER (DRAG & DROP)
+  // ══════════════════════════════════════════════════════════════════════
 
   const handleDragStart = (e, index) => {
     setDraggedSection(index)
@@ -336,7 +395,7 @@ export default function ResumeEditor() {
   const handleDragOver = (e, index) => {
     e.preventDefault()
     if (draggedSection === null || draggedSection === index) return
-    
+
     setSections(prev => {
       const updated = [...prev]
       const [removed] = updated.splice(draggedSection, 1)
@@ -351,12 +410,15 @@ export default function ResumeEditor() {
   }
 
   const toggleSectionVisibility = (sectionId) => {
-    setSections(prev => prev.map(s => 
+    setSections(prev => prev.map(s =>
       s.id === sectionId ? { ...s, visible: !s.visible } : s
     ))
   }
 
-  // ─── Download PDF ───
+  // ══════════════════════════════════════════════════════════════════════
+  // DOWNLOAD
+  // ══════════════════════════════════════════════════════════════════════
+
   const handleDownload = async () => {
     const element = resumeRef.current
     if (!element) return
@@ -368,8 +430,8 @@ export default function ResumeEditor() {
       margin: 0,
       filename: `${name.replace(/\s+/g, '_')}_Resume.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { 
-        scale: 2, 
+      html2canvas: {
+        scale: 2,
         useCORS: true,
         allowTaint: true,
         letterRendering: true,
@@ -389,7 +451,6 @@ export default function ResumeEditor() {
     }
   }
 
-  // ─── Download as PNG ───
   const handleDownloadPNG = async () => {
     const element = resumeRef.current
     if (!element) return
@@ -402,12 +463,12 @@ export default function ResumeEditor() {
         useCORS: true,
         allowTaint: true,
       })
-      
+
       const link = document.createElement('a')
       link.download = `${resumeData?.personal_info?.name || 'Resume'}_Resume.png`
       link.href = canvas.toDataURL('image/png')
       link.click()
-      
+
       setMsg({ text: 'PNG downloaded successfully!', type: 'success' })
     } catch (error) {
       console.error('PNG generation error:', error)
@@ -417,7 +478,7 @@ export default function ResumeEditor() {
     }
   }
 
-  // ─── Loading State ───
+  // ─── Loading ───
   if (loading) {
     return (
       <div className="editor-loading">
@@ -427,20 +488,20 @@ export default function ResumeEditor() {
     )
   }
 
-  // ─── Main Render ───
+  // ══════════════════════════════════════════════════════════════════════
+  // RENDER
+  // ══════════════════════════════════════════════════════════════════════
+
   return (
     <div className="resume-editor">
       {/* Top Toolbar */}
       <div className="editor-toolbar">
         <div className="toolbar-left">
-          <button className="btn btn-ghost" onClick={() => navigate(-1)}>
-            ← Back
-          </button>
+          <button className="btn btn-ghost" onClick={() => navigate(-1)}>← Back</button>
           <h1 className="editor-title">📝 Resume Editor</h1>
         </div>
-        
+
         <div className="toolbar-center">
-          {/* Zoom Controls */}
           <div className="zoom-controls">
             <button onClick={() => setZoom(z => Math.max(50, z - 10))}>−</button>
             <span>{zoom}%</span>
@@ -450,67 +511,47 @@ export default function ResumeEditor() {
         </div>
 
         <div className="toolbar-right">
-          <button 
-            className="btn btn-secondary"
-            onClick={handleDownloadPNG}
-            disabled={saving}
-          >
+          <button className="btn btn-secondary" onClick={handleDownloadPNG} disabled={saving}>
             🖼️ PNG
           </button>
-          <button 
-            className="btn btn-primary"
-            onClick={handleDownload}
-            disabled={saving}
-          >
+          <button className="btn btn-primary" onClick={handleDownload} disabled={saving}>
             {saving ? '⏳ Saving...' : '📥 Download PDF'}
           </button>
         </div>
       </div>
 
-      <MessageAlert 
-        message={msg.text} 
-        type={msg.type} 
-        onClose={() => setMsg({ text: '', type: '' })} 
+      <MessageAlert
+        message={msg.text}
+        type={msg.type}
+        onClose={() => setMsg({ text: '', type: '' })}
       />
 
       <div className="editor-main">
-        {/* Left Sidebar - Tools & Settings */}
+        {/* ════════════════════════════════════════════════
+            LEFT SIDEBAR
+        ════════════════════════════════════════════════ */}
         <div className={`editor-sidebar ${showSidebar ? '' : 'collapsed'}`}>
-          <button 
-            className="sidebar-toggle"
-            onClick={() => setShowSidebar(!showSidebar)}
-          >
+          <button className="sidebar-toggle" onClick={() => setShowSidebar(!showSidebar)}>
             {showSidebar ? '◀' : '▶'}
           </button>
 
           {showSidebar && (
             <>
-              {/* Panel Tabs */}
               <div className="sidebar-tabs">
-                <button 
-                  className={activePanel === 'style' ? 'active' : ''} 
-                  onClick={() => setActivePanel('style')}
-                >
+                <button className={activePanel === 'style' ? 'active' : ''} onClick={() => setActivePanel('style')}>
                   🎨 Style
                 </button>
-                <button 
-                  className={activePanel === 'sections' ? 'active' : ''} 
-                  onClick={() => setActivePanel('sections')}
-                >
+                <button className={activePanel === 'sections' ? 'active' : ''} onClick={() => setActivePanel('sections')}>
                   📑 Sections
                 </button>
-                <button 
-                  className={activePanel === 'elements' ? 'active' : ''} 
-                  onClick={() => setActivePanel('elements')}
-                >
+                <button className={activePanel === 'elements' ? 'active' : ''} onClick={() => setActivePanel('elements')}>
                   ➕ Add
                 </button>
               </div>
 
-              {/* Style Panel */}
+              {/* ─── Style Panel ─── */}
               {activePanel === 'style' && (
                 <div className="sidebar-panel">
-                  {/* Template Selection */}
                   <div className="panel-section">
                     <label className="panel-label">Template</label>
                     <div className="template-selector">
@@ -527,7 +568,6 @@ export default function ResumeEditor() {
                     </div>
                   </div>
 
-                  {/* Color Scheme */}
                   <div className="panel-section">
                     <label className="panel-label">Color</label>
                     <div className="color-selector">
@@ -543,10 +583,9 @@ export default function ResumeEditor() {
                     </div>
                   </div>
 
-                  {/* Font Selection */}
                   <div className="panel-section">
                     <label className="panel-label">Font</label>
-                    <select 
+                    <select
                       value={style.font_style}
                       onChange={(e) => setStyle({ ...style, font_style: e.target.value })}
                       className="panel-select"
@@ -557,7 +596,6 @@ export default function ResumeEditor() {
                     </select>
                   </div>
 
-                  {/* Font Size */}
                   <div className="panel-section">
                     <label className="panel-label">Font Size</label>
                     <div className="size-buttons">
@@ -573,7 +611,6 @@ export default function ResumeEditor() {
                     </div>
                   </div>
 
-                  {/* Photo Toggle */}
                   <div className="panel-section">
                     <label className="toggle-row">
                       <input
@@ -587,7 +624,7 @@ export default function ResumeEditor() {
                 </div>
               )}
 
-              {/* Sections Panel */}
+              {/* ─── Sections Panel ─── */}
               {activePanel === 'sections' && (
                 <div className="sidebar-panel">
                   <p className="panel-hint">Drag to reorder • Click eye to toggle</p>
@@ -619,7 +656,7 @@ export default function ResumeEditor() {
                 </div>
               )}
 
-              {/* Add Elements Panel */}
+              {/* ─── Add Elements Panel ─── */}
               {activePanel === 'elements' && (
                 <div className="sidebar-panel">
                   <p className="panel-hint">Click to add new items</p>
@@ -636,30 +673,54 @@ export default function ResumeEditor() {
                     <button onClick={addProject}>
                       <span>🚀</span> Add Project
                     </button>
-                    <button onClick={() => {
-                      if (!sections.find(s => s.id === 'languages')) {
-                        setSections([...sections, { id: 'languages', visible: true }])
-                      }
-                    }}>
-                      <span>🌍</span> Add Languages
+                    <button onClick={addLanguage}>
+                      <span>🌍</span> Add Language
                     </button>
-                    <button onClick={() => {
-                      if (!sections.find(s => s.id === 'interests')) {
-                        setSections([...sections, { id: 'interests', visible: true }])
-                      }
-                    }}>
-                      <span>❤️</span> Add Interests
+                    <button onClick={addInterest}>
+                      <span>❤️</span> Add Interest
                     </button>
                   </div>
+
+                  {/* Show current languages */}
+                  {(resumeData.languages || []).length > 0 && (
+                    <div className="panel-added-items">
+                      <label className="panel-label" style={{ marginTop: 16 }}>
+                        🌍 Languages ({resumeData.languages.length})
+                      </label>
+                      {resumeData.languages.map((lang, i) => (
+                        <div key={i} className="added-item">
+                          <span>{lang.name} — {lang.proficiency}</span>
+                          <button onClick={() => removeLanguage(i)}>×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Show current interests */}
+                  {(resumeData.interests || []).length > 0 && (
+                    <div className="panel-added-items">
+                      <label className="panel-label" style={{ marginTop: 16 }}>
+                        ❤️ Interests ({resumeData.interests.length})
+                      </label>
+                      {resumeData.interests.map((interest, i) => (
+                        <div key={i} className="added-item">
+                          <span>{typeof interest === 'string' ? interest : interest.name}</span>
+                          <button onClick={() => removeInterest(i)}>×</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </>
           )}
         </div>
 
-        {/* Center - Resume Preview (Editable) */}
+        {/* ════════════════════════════════════════════════
+            CENTER - RESUME PREVIEW
+        ════════════════════════════════════════════════ */}
         <div className="editor-canvas">
-          <div 
+          <div
             className="canvas-wrapper"
             style={{ transform: `scale(${zoom / 100})` }}
           >
@@ -683,6 +744,12 @@ export default function ResumeEditor() {
                 onRemoveSkillCategory={removeSkillCategory}
                 onUpdateProject={updateProject}
                 onRemoveProject={removeProject}
+                onUpdateLanguage={updateLanguage}
+                onAddLanguage={addLanguage}
+                onRemoveLanguage={removeLanguage}
+                onUpdateInterest={updateInterest}
+                onAddInterest={addInterest}
+                onRemoveInterest={removeInterest}
                 editingField={editingField}
                 setEditingField={setEditingField}
               />
@@ -690,7 +757,9 @@ export default function ResumeEditor() {
           </div>
         </div>
 
-        {/* Right Sidebar - Quick Edit Panel */}
+        {/* ════════════════════════════════════════════════
+            RIGHT SIDEBAR - QUICK EDIT
+        ════════════════════════════════════════════════ */}
         <div className="editor-properties">
           <h3>Quick Edit</h3>
           <div className="properties-content">
@@ -739,6 +808,49 @@ export default function ResumeEditor() {
                 rows={4}
               />
             </div>
+
+            {/* Languages Quick Edit */}
+            <div className="property-group">
+              <label>Languages</label>
+              {(resumeData.languages || []).map((lang, i) => (
+                <div key={i} style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
+                  <input
+                    type="text"
+                    value={lang.name || ''}
+                    onChange={(e) => updateLanguage(i, 'name', e.target.value)}
+                    placeholder="Language"
+                    style={{ flex: 1 }}
+                  />
+                  <input
+                    type="text"
+                    value={lang.proficiency || ''}
+                    onChange={(e) => updateLanguage(i, 'proficiency', e.target.value)}
+                    placeholder="Level"
+                    style={{ flex: 1 }}
+                  />
+                  <button onClick={() => removeLanguage(i)} className="prop-remove-btn">×</button>
+                </div>
+              ))}
+              <button onClick={addLanguage} className="prop-add-btn">+ Add Language</button>
+            </div>
+
+            {/* Interests Quick Edit */}
+            <div className="property-group">
+              <label>Interests</label>
+              {(resumeData.interests || []).map((interest, i) => (
+                <div key={i} style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
+                  <input
+                    type="text"
+                    value={typeof interest === 'string' ? interest : interest.name || ''}
+                    onChange={(e) => updateInterest(i, e.target.value)}
+                    placeholder="Interest"
+                    style={{ flex: 1 }}
+                  />
+                  <button onClick={() => removeInterest(i)} className="prop-remove-btn">×</button>
+                </div>
+              ))}
+              <button onClick={addInterest} className="prop-add-btn">+ Add Interest</button>
+            </div>
           </div>
         </div>
       </div>
@@ -746,13 +858,8 @@ export default function ResumeEditor() {
   )
 }
 
-
 // ══════════════════════════════════════════════════════════════════════════════
-//  EDITABLE RESUME COMPONENT
-// ══════════════════════════════════════════════════════════════════════════════
-
-// ══════════════════════════════════════════════════════════════════════════════
-// EDITABLE RESUME COMPONENT - ALL TEMPLATES
+// EDITABLE RESUME COMPONENT
 // ══════════════════════════════════════════════════════════════════════════════
 
 function EditableResume({
@@ -774,28 +881,34 @@ function EditableResume({
   onRemoveSkillCategory,
   onUpdateProject,
   onRemoveProject,
+  onUpdateLanguage,
+  onAddLanguage,
+  onRemoveLanguage,
+  onUpdateInterest,
+  onAddInterest,
+  onRemoveInterest,
   editingField,
   setEditingField,
 }) {
   const pi = data.personal_info || {}
   const c = data
 
-  // ─── Editable Text Component ───
-  const EditableText = ({ 
-    value, 
-    onChange, 
-    className, 
-    style: textStyle, 
-    multiline = false, 
-    placeholder = 'Click to edit' 
+  const fs = (baseSize) => Math.round(baseSize * fontScale * 10) / 10
+
+  // ─── EditableText ───
+  const EditableText = ({
+    value,
+    onChange,
+    className,
+    style: textStyle,
+    multiline = false,
+    placeholder = 'Click to edit',
   }) => {
     const [editing, setEditing] = useState(false)
     const [tempValue, setTempValue] = useState(value)
     const inputRef = useRef(null)
 
-    useEffect(() => {
-      setTempValue(value)
-    }, [value])
+    useEffect(() => { setTempValue(value) }, [value])
 
     useEffect(() => {
       if (editing && inputRef.current) {
@@ -811,16 +924,8 @@ function EditableResume({
             ref={inputRef}
             value={tempValue}
             onChange={(e) => setTempValue(e.target.value)}
-            onBlur={() => {
-              setEditing(false)
-              onChange(tempValue)
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
-                setEditing(false)
-                setTempValue(value)
-              }
-            }}
+            onBlur={() => { setEditing(false); onChange(tempValue) }}
+            onKeyDown={(e) => { if (e.key === 'Escape') { setEditing(false); setTempValue(value) } }}
             className={`editable-input ${className || ''}`}
             style={textStyle}
           />
@@ -832,19 +937,10 @@ function EditableResume({
           type="text"
           value={tempValue}
           onChange={(e) => setTempValue(e.target.value)}
-          onBlur={() => {
-            setEditing(false)
-            onChange(tempValue)
-          }}
+          onBlur={() => { setEditing(false); onChange(tempValue) }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              setEditing(false)
-              onChange(tempValue)
-            }
-            if (e.key === 'Escape') {
-              setEditing(false)
-              setTempValue(value)
-            }
+            if (e.key === 'Enter') { setEditing(false); onChange(tempValue) }
+            if (e.key === 'Escape') { setEditing(false); setTempValue(value) }
           }}
           className={`editable-input ${className || ''}`}
           style={textStyle}
@@ -856,78 +952,66 @@ function EditableResume({
       <span
         className={`editable-text ${className || ''} ${!value ? 'placeholder' : ''}`}
         style={textStyle}
-        onClick={() => {
-          setTempValue(value || '')
-          setEditing(true)
-        }}
+        onClick={() => { setTempValue(value || ''); setEditing(true) }}
       >
         {value || placeholder}
       </span>
     )
   }
 
-  // ─── Shared Section Renderers ───
-  const visibleSections = sections.filter(s => s.visible)
+  const visibleSections = sections.filter((s) => s.visible)
 
-  const renderSummary = (headerStyle, textColor = '#444') => {
-    const section = visibleSections.find(s => s.id === 'summary')
+  // ══════════════════════════════════════════════════════════════════
+  // SECTION RENDERERS
+  // ══════════════════════════════════════════════════════════════════
+
+  const renderSummary = (headerStyle) => {
+    const section = visibleSections.find((s) => s.id === 'summary')
     if (!section) return null
     if (!c.professional_summary && editingField !== 'summary') return null
 
     return (
-      <div style={{ marginBottom: 18 }}>
-        <h2 style={headerStyle}>
-          {style.template === 'executive' ? 'PROFESSIONAL SUMMARY' : 'Professional Summary'}
-        </h2>
+      <div style={{ marginBottom: fs(18) }}>
+        <h2 style={headerStyle}>Professional Summary</h2>
         <EditableText
           value={c.professional_summary}
           onChange={onUpdateSummary}
           multiline
           placeholder="Write your professional summary..."
-          style={{ 
-            fontSize: 10, 
-            lineHeight: 1.7, 
-            color: textColor, 
-            display: 'block', 
-            width: '100%' 
-          }}
+          style={{ fontSize: fs(10), lineHeight: 1.7, color: '#444', display: 'block', width: '100%' }}
         />
       </div>
     )
   }
 
-  const renderExperience = (headerStyle, dateColor = '#888') => {
-    const section = visibleSections.find(s => s.id === 'experience')
+  const renderExperience = (headerStyle) => {
+    const section = visibleSections.find((s) => s.id === 'experience')
     if (!section || !c.experience?.length) return null
 
     return (
-      <div style={{ marginBottom: 18 }}>
+      <div style={{ marginBottom: fs(18) }}>
         <h2 style={headerStyle}>
-          {style.template === 'executive' ? 'PROFESSIONAL EXPERIENCE' : 'Experience'}
+          {style.template === 'executive' ? 'Professional Experience' : 'Experience'}
         </h2>
         {c.experience.map((exp, i) => (
-          <div 
-            key={i} 
-            style={{ 
-              marginBottom: 12, 
+          <div
+            key={i}
+            style={{
+              marginBottom: fs(12),
               position: 'relative',
-              ...(style.template === 'executive' 
-                ? { paddingLeft: 12, borderLeft: `2px solid ${color}20` } 
-                : {}
-              )
-            }} 
+              ...(style.template === 'executive'
+                ? { paddingLeft: fs(12), borderLeft: `2px solid ${color}20` }
+                : {}),
+            }}
             className="editable-section"
           >
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'baseline' 
-            }}>
-              <div style={{ fontSize: 11, fontWeight: 700 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <div style={{ fontSize: fs(11), fontWeight: 700 }}>
                 <EditableText
                   value={exp.role}
                   onChange={(val) => onUpdateExperience(i, 'role', val)}
                   placeholder="Job Title"
+                  style={{ fontSize: fs(11), fontWeight: 700 }}
                 />
                 {style.template === 'classic' && (
                   <>
@@ -936,146 +1020,68 @@ function EditableResume({
                       value={exp.company}
                       onChange={(val) => onUpdateExperience(i, 'company', val)}
                       placeholder="Company"
+                      style={{ fontSize: fs(11), fontWeight: 700 }}
                     />
                   </>
                 )}
               </div>
-              <span style={{ fontSize: 9, color: dateColor, whiteSpace: 'nowrap' }}>
-                <EditableText
-                  value={exp.start_date}
-                  onChange={(val) => onUpdateExperience(i, 'start_date', val)}
-                  placeholder="Start"
-                />
+              <span style={{ fontSize: fs(9), color: '#888', whiteSpace: 'nowrap' }}>
+                <EditableText value={exp.start_date} onChange={(val) => onUpdateExperience(i, 'start_date', val)} placeholder="Start" style={{ fontSize: fs(9) }} />
                 {' – '}
-                <EditableText
-                  value={exp.end_date}
-                  onChange={(val) => onUpdateExperience(i, 'end_date', val)}
-                  placeholder="End"
-                />
+                <EditableText value={exp.end_date} onChange={(val) => onUpdateExperience(i, 'end_date', val)} placeholder="End" style={{ fontSize: fs(9) }} />
               </span>
             </div>
-
             {style.template !== 'classic' && (
               <EditableText
                 value={exp.company}
                 onChange={(val) => onUpdateExperience(i, 'company', val)}
                 placeholder="Company Name"
-                style={{ 
-                  fontSize: 10, 
-                  color: style.template === 'minimal' ? '#888' : color, 
-                  fontWeight: 600, 
-                  marginBottom: 4, 
-                  display: 'block' 
-                }}
+                style={{ fontSize: fs(10), color: style.template === 'minimal' ? '#888' : color, fontWeight: 600, display: 'block', marginBottom: fs(4) }}
               />
             )}
-
-            <ul style={{ 
-              fontSize: 9, 
-              lineHeight: 1.7, 
-              color: '#444', 
-              paddingLeft: 14, 
-              margin: '4px 0 0' 
-            }}>
+            <ul style={{ fontSize: fs(9), lineHeight: 1.7, color: '#444', paddingLeft: fs(14), margin: `${fs(4)}px 0 0` }}>
               {exp.bullets?.map((b, j) => (
-                <li key={j} style={{ marginBottom: 2 }}>
+                <li key={j} style={{ marginBottom: fs(2) }}>
                   <EditableText
                     value={b}
-                    onChange={(val) => {
-                      const newBullets = [...exp.bullets]
-                      newBullets[j] = val
-                      onUpdateExperience(i, 'bullets', newBullets)
-                    }}
-                    placeholder="Describe achievement..."
+                    onChange={(val) => { const nb = [...exp.bullets]; nb[j] = val; onUpdateExperience(i, 'bullets', nb) }}
+                    placeholder="Achievement..."
+                    style={{ fontSize: fs(9) }}
                   />
                 </li>
               ))}
             </ul>
-
-            <button
-              className="remove-btn"
-              onClick={() => onRemoveExperience(i)}
-              title="Remove experience"
-            >
-              ×
-            </button>
+            <button className="remove-btn" onClick={() => onRemoveExperience(i)}>×</button>
           </div>
         ))}
       </div>
     )
   }
 
-  const renderEducation = (headerStyle, dateColor = '#888') => {
-    const section = visibleSections.find(s => s.id === 'education')
+  const renderEducation = (headerStyle) => {
+    const section = visibleSections.find((s) => s.id === 'education')
     if (!section || !c.education?.length) return null
 
     return (
-      <div style={{ marginBottom: 18 }}>
+      <div style={{ marginBottom: fs(18) }}>
         <h2 style={headerStyle}>Education</h2>
         {c.education.map((edu, i) => (
-          <div 
-            key={i} 
-            style={{ marginBottom: 8, position: 'relative' }} 
-            className="editable-section"
-          >
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'baseline' 
-            }}>
+          <div key={i} style={{ marginBottom: fs(8), position: 'relative' }} className="editable-section">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
               <div>
-                <EditableText
-                  value={edu.degree}
-                  onChange={(val) => onUpdateEducation(i, 'degree', val)}
-                  style={{ fontSize: 11, fontWeight: 700 }}
-                  placeholder="Degree"
-                />
-                <span style={{ fontSize: 10, color: '#666' }}>
-                  {' — '}
-                  <EditableText
-                    value={edu.institution}
-                    onChange={(val) => onUpdateEducation(i, 'institution', val)}
-                    placeholder="Institution"
-                  />
+                <EditableText value={edu.degree} onChange={(val) => onUpdateEducation(i, 'degree', val)} style={{ fontSize: fs(11), fontWeight: 700 }} placeholder="Degree" />
+                <span style={{ fontSize: fs(10), color: '#666' }}>
+                  {' — '}<EditableText value={edu.institution} onChange={(val) => onUpdateEducation(i, 'institution', val)} placeholder="Institution" style={{ fontSize: fs(10) }} />
                 </span>
               </div>
-              <span style={{ fontSize: 9, color: dateColor }}>
-                <EditableText
-                  value={edu.date}
-                  onChange={(val) => onUpdateEducation(i, 'date', val)}
-                  placeholder="Date"
-                />
+              <span style={{ fontSize: fs(9), color: '#888' }}>
+                <EditableText value={edu.date} onChange={(val) => onUpdateEducation(i, 'date', val)} placeholder="Date" style={{ fontSize: fs(9) }} />
               </span>
             </div>
-
             {edu.gpa && (
-              <div style={{ fontSize: 9, color: '#888' }}>
-                GPA:{' '}
-                <EditableText
-                  value={edu.gpa}
-                  onChange={(val) => onUpdateEducation(i, 'gpa', val)}
-                  placeholder="GPA"
-                />
-              </div>
+              <div style={{ fontSize: fs(9), color: '#888' }}>GPA: <EditableText value={edu.gpa} onChange={(val) => onUpdateEducation(i, 'gpa', val)} style={{ fontSize: fs(9) }} /></div>
             )}
-
-            {edu.highlights && (
-              <div style={{ fontSize: 9, color: '#888' }}>
-                <EditableText
-                  value={edu.highlights}
-                  onChange={(val) => onUpdateEducation(i, 'highlights', val)}
-                  placeholder="Highlights"
-                />
-              </div>
-            )}
-
-            <button
-              className="remove-btn"
-              onClick={() => onRemoveEducation(i)}
-              title="Remove education"
-            >
-              ×
-            </button>
+            <button className="remove-btn" onClick={() => onRemoveEducation(i)}>×</button>
           </div>
         ))}
       </div>
@@ -1083,112 +1089,44 @@ function EditableResume({
   }
 
   const renderSkills = (headerStyle, isInline = false) => {
-    const section = visibleSections.find(s => s.id === 'skills')
+    const section = visibleSections.find((s) => s.id === 'skills')
     if (!section || !c.skills_grouped || !Object.keys(c.skills_grouped).length) return null
 
-    if (isInline) {
-      return (
-        <div style={{ marginBottom: 18 }}>
-          <h2 style={headerStyle}>Skills</h2>
-          <div style={{ fontSize: 10, lineHeight: 2, color: '#444' }}>
-            {Object.entries(c.skills_grouped).map(([cat, skills], idx) => (
-              <span key={cat} className="editable-section" style={{ position: 'relative' }}>
-                <EditableText
-                  value={Array.isArray(skills) ? skills.join(' · ') : skills}
-                  onChange={(val) => onUpdateSkills(cat, val.split(' · ').map(s => s.trim()).filter(Boolean))}
-                />
-                {idx < Object.keys(c.skills_grouped).length - 1 && ' · '}
-                <button
-                  className="remove-btn"
-                  onClick={() => onRemoveSkillCategory(cat)}
-                  style={{ position: 'relative', display: 'inline' }}
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-        </div>
-      )
-    }
-
     return (
-      <div style={{ marginBottom: 18 }}>
+      <div style={{ marginBottom: fs(18) }}>
         <h2 style={headerStyle}>Skills</h2>
-        {Object.entries(c.skills_grouped).map(([cat, skills]) => (
-          <div 
-            key={cat} 
-            style={{ fontSize: 10, marginBottom: 4, position: 'relative' }} 
-            className="editable-section"
-          >
-            <strong>
-              <EditableText
-                value={cat}
-                onChange={(val) => onUpdateSkillCategory(cat, val)}
-                placeholder="Category"
-              />
-              :
-            </strong>{' '}
-            <EditableText
-              value={Array.isArray(skills) ? skills.join(', ') : skills}
-              onChange={(val) => onUpdateSkills(cat, val.split(', ').map(s => s.trim()).filter(Boolean))}
-              placeholder="Skills..."
-            />
-            <button
-              className="remove-btn"
-              onClick={() => onRemoveSkillCategory(cat)}
-            >
-              ×
-            </button>
+        {isInline ? (
+          <div style={{ fontSize: fs(10), lineHeight: 2, color: '#444' }}>
+            {Object.values(c.skills_grouped).flat().join(' · ')}
           </div>
-        ))}
+        ) : (
+          Object.entries(c.skills_grouped).map(([cat, skills]) => (
+            <div key={cat} style={{ fontSize: fs(10), marginBottom: fs(4), position: 'relative' }} className="editable-section">
+              <strong><EditableText value={cat} onChange={(val) => onUpdateSkillCategory(cat, val)} placeholder="Category" style={{ fontSize: fs(10), fontWeight: 700 }} />:</strong>{' '}
+              <EditableText value={Array.isArray(skills) ? skills.join(', ') : skills} onChange={(val) => onUpdateSkills(cat, val.split(', ').map(s => s.trim()).filter(Boolean))} placeholder="Skills..." style={{ fontSize: fs(10) }} />
+              <button className="remove-btn" onClick={() => onRemoveSkillCategory(cat)}>×</button>
+            </div>
+          ))
+        )}
       </div>
     )
   }
 
   const renderProjects = (headerStyle) => {
-    const section = visibleSections.find(s => s.id === 'projects')
+    const section = visibleSections.find((s) => s.id === 'projects')
     if (!section || !c.projects?.length) return null
 
     return (
-      <div style={{ marginBottom: 18 }}>
-        <h2 style={headerStyle}>
-          {style.template === 'executive' ? 'Key Projects' : 'Projects'}
-        </h2>
+      <div style={{ marginBottom: fs(18) }}>
+        <h2 style={headerStyle}>{style.template === 'executive' ? 'Key Projects' : 'Projects'}</h2>
         {c.projects.map((proj, i) => (
-          <div 
-            key={i} 
-            style={{ marginBottom: 8, position: 'relative' }} 
-            className="editable-section"
-          >
-            <EditableText
-              value={proj.title}
-              onChange={(val) => onUpdateProject(i, 'title', val)}
-              style={{ fontSize: 11, fontWeight: 700, display: 'block' }}
-              placeholder="Project Name"
-            />
-            <EditableText
-              value={proj.description}
-              onChange={(val) => onUpdateProject(i, 'description', val)}
-              style={{ fontSize: 9, color: '#444', lineHeight: 1.5, display: 'block' }}
-              placeholder="Description..."
-            />
+          <div key={i} style={{ marginBottom: fs(8), position: 'relative' }} className="editable-section">
+            <EditableText value={proj.title} onChange={(val) => onUpdateProject(i, 'title', val)} style={{ fontSize: fs(11), fontWeight: 700, display: 'block' }} placeholder="Project Name" />
+            <EditableText value={proj.description} onChange={(val) => onUpdateProject(i, 'description', val)} style={{ fontSize: fs(9), color: '#444', display: 'block' }} placeholder="Description..." />
             {proj.technologies && (
-              <div style={{ fontSize: 8, color, marginTop: 2 }}>
-                Tech:{' '}
-                <EditableText
-                  value={proj.technologies}
-                  onChange={(val) => onUpdateProject(i, 'technologies', val)}
-                  placeholder="Technologies"
-                />
-              </div>
+              <div style={{ fontSize: fs(8), color, marginTop: fs(2) }}>Tech: <EditableText value={proj.technologies} onChange={(val) => onUpdateProject(i, 'technologies', val)} style={{ fontSize: fs(8) }} /></div>
             )}
-            <button
-              className="remove-btn"
-              onClick={() => onRemoveProject(i)}
-            >
-              ×
-            </button>
+            <button className="remove-btn" onClick={() => onRemoveProject(i)}>×</button>
           </div>
         ))}
       </div>
@@ -1196,18 +1134,16 @@ function EditableResume({
   }
 
   const renderAchievements = (headerStyle) => {
-    const section = visibleSections.find(s => s.id === 'achievements')
+    const section = visibleSections.find((s) => s.id === 'achievements')
     if (!section || !c.achievements?.length) return null
 
     return (
-      <div style={{ marginBottom: 18 }}>
+      <div style={{ marginBottom: fs(18) }}>
         <h2 style={headerStyle}>Achievements</h2>
         {c.achievements.map((a, i) => (
-          <div key={i} style={{ fontSize: 9, marginBottom: 4 }}>
+          <div key={i} style={{ fontSize: fs(9), marginBottom: fs(4) }}>
             <span style={{ fontWeight: 700 }}>{a.title}</span>
-            {a.description && (
-              <span style={{ color: '#666' }}> — {a.description}</span>
-            )}
+            {a.description && <span style={{ color: '#666' }}> — {a.description}</span>}
           </div>
         ))}
       </div>
@@ -1215,14 +1151,14 @@ function EditableResume({
   }
 
   const renderCertifications = (headerStyle) => {
-    const section = visibleSections.find(s => s.id === 'certifications')
+    const section = visibleSections.find((s) => s.id === 'certifications')
     if (!section || !c.certifications?.length) return null
 
     return (
-      <div style={{ marginBottom: 18 }}>
+      <div style={{ marginBottom: fs(18) }}>
         <h2 style={headerStyle}>Certifications</h2>
         {c.certifications.map((cert, i) => (
-          <div key={i} style={{ fontSize: 10, marginBottom: 4 }}>
+          <div key={i} style={{ fontSize: fs(10), marginBottom: fs(4) }}>
             {cert.title} — {cert.organization} ({cert.year})
           </div>
         ))}
@@ -1230,49 +1166,218 @@ function EditableResume({
     )
   }
 
-  // ─── Sidebar Skills & Certs (for modern template sidebar) ───
+  // ══════════════════════════════════════════════════════════════════
+  // LANGUAGES RENDERER
+  // ══════════════════════════════════════════════════════════════════
+
+  const renderLanguages = (headerStyle, isWhiteText = false) => {
+    const section = visibleSections.find((s) => s.id === 'languages')
+    if (!section) return null
+
+    const languages = c.languages || []
+    const txtColor = isWhiteText ? '#fff' : undefined
+    const subColor = isWhiteText ? 'rgba(255,255,255,0.7)' : '#888'
+
+    return (
+      <div style={{ marginBottom: fs(18) }}>
+        <h2 style={headerStyle}>Languages</h2>
+
+        {languages.length === 0 && (
+          <p style={{ fontSize: fs(9), color: subColor, fontStyle: 'italic' }}>
+            No languages added yet
+          </p>
+        )}
+
+        {languages.map((lang, i) => {
+          const name = typeof lang === 'string' ? lang : lang.name || ''
+          const level = typeof lang === 'string' ? '' : lang.proficiency || ''
+
+          const levels = ['beginner', 'elementary', 'intermediate', 'advanced', 'fluent', 'native']
+          const levelIndex = levels.findIndex(l => level.toLowerCase().includes(l))
+          const filledDots = levelIndex >= 0 ? Math.min(levelIndex + 1, 5) : 3
+
+          return (
+            <div
+              key={i}
+              style={{
+                fontSize: fs(10),
+                marginBottom: fs(8),
+                position: 'relative',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+              className="editable-section"
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: fs(6), flex: 1 }}>
+                <EditableText
+                  value={name}
+                  onChange={(val) => onUpdateLanguage(i, 'name', val)}
+                  placeholder="Language"
+                  style={{ fontSize: fs(10), fontWeight: 600, color: txtColor }}
+                />
+                <span style={{ fontSize: fs(8), color: subColor }}>—</span>
+                <EditableText
+                  value={level}
+                  onChange={(val) => onUpdateLanguage(i, 'proficiency', val)}
+                  placeholder="Level (e.g. Fluent)"
+                  style={{ fontSize: fs(9), color: subColor }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: 3, marginLeft: fs(8) }}>
+                {[1, 2, 3, 4, 5].map((dot) => (
+                  <div
+                    key={dot}
+                    style={{
+                      width: fs(6),
+                      height: fs(6),
+                      borderRadius: '50%',
+                      background: dot <= filledDots
+                        ? (isWhiteText ? 'rgba(255,255,255,0.9)' : color)
+                        : (isWhiteText ? 'rgba(255,255,255,0.2)' : '#ddd'),
+                    }}
+                  />
+                ))}
+              </div>
+
+              <button
+                className={`remove-btn ${isWhiteText ? 'remove-btn-light' : ''}`}
+                onClick={() => onRemoveLanguage(i)}
+              >
+                ×
+              </button>
+            </div>
+          )
+        })}
+
+        <button
+          onClick={onAddLanguage}
+          className="add-item-btn"
+          style={{
+            fontSize: fs(8),
+            color: isWhiteText ? 'rgba(255,255,255,0.5)' : '#aaa',
+            border: `1px dashed ${isWhiteText ? 'rgba(255,255,255,0.3)' : '#ddd'}`,
+            background: 'transparent',
+            padding: `${fs(4)}px ${fs(8)}px`,
+            borderRadius: 4,
+            cursor: 'pointer',
+            marginTop: fs(4),
+            width: '100%',
+            textAlign: 'center',
+          }}
+        >
+          + Add Language
+        </button>
+      </div>
+    )
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  // INTERESTS RENDERER
+  // ══════════════════════════════════════════════════════════════════
+
+  const renderInterests = (headerStyle, isWhiteText = false) => {
+    const section = visibleSections.find((s) => s.id === 'interests')
+    if (!section) return null
+
+    const interests = c.interests || []
+    const txtColor = isWhiteText ? '#fff' : color
+
+    return (
+      <div style={{ marginBottom: fs(18) }}>
+        <h2 style={headerStyle}>Interests</h2>
+
+        {interests.length === 0 && (
+          <p style={{
+            fontSize: fs(9),
+            color: isWhiteText ? 'rgba(255,255,255,0.5)' : '#aaa',
+            fontStyle: 'italic',
+          }}>
+            No interests added yet
+          </p>
+        )}
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: fs(6) }}>
+          {interests.map((interest, i) => {
+            const name = typeof interest === 'string' ? interest : interest?.name || ''
+
+            return (
+              <div
+                key={i}
+                style={{
+                  position: 'relative',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: fs(4),
+                  padding: `${fs(3)}px ${fs(10)}px`,
+                  background: isWhiteText ? 'rgba(255,255,255,0.15)' : `${color}12`,
+                  borderRadius: fs(12),
+                  border: `1px solid ${isWhiteText ? 'rgba(255,255,255,0.25)' : `${color}30`}`,
+                }}
+                className="editable-section"
+              >
+                <EditableText
+                  value={name}
+                  onChange={(val) => onUpdateInterest(i, val)}
+                  placeholder="Interest"
+                  style={{ fontSize: fs(9), color: txtColor, fontWeight: 500 }}
+                />
+                <button
+                  className={`remove-btn ${isWhiteText ? 'remove-btn-light' : ''}`}
+                  onClick={() => onRemoveInterest(i)}
+                  style={{ position: 'static', width: fs(14), height: fs(14), fontSize: fs(10) }}
+                >
+                  ×
+                </button>
+              </div>
+            )
+          })}
+        </div>
+
+        <button
+          onClick={onAddInterest}
+          className="add-item-btn"
+          style={{
+            fontSize: fs(8),
+            color: isWhiteText ? 'rgba(255,255,255,0.5)' : '#aaa',
+            border: `1px dashed ${isWhiteText ? 'rgba(255,255,255,0.3)' : '#ddd'}`,
+            background: 'transparent',
+            padding: `${fs(4)}px ${fs(8)}px`,
+            borderRadius: 4,
+            cursor: 'pointer',
+            marginTop: fs(6),
+            width: '100%',
+            textAlign: 'center',
+          }}
+        >
+          + Add Interest
+        </button>
+      </div>
+    )
+  }
+
+  // ── Sidebar renderers (Modern template) ──
+
   const renderSidebarSkills = () => {
     if (!c.skills_grouped || !Object.keys(c.skills_grouped).length) return null
 
     return (
-      <div style={{ marginBottom: 20 }}>
-        <h3 style={{ 
-          fontSize: 13, 
-          borderBottom: '1px solid rgba(255,255,255,0.3)', 
-          paddingBottom: 4, 
-          marginBottom: 8 
-        }}>
-          SKILLS
-        </h3>
+      <div style={{ marginBottom: fs(20) }}>
+        <h3 style={{ fontSize: fs(13), borderBottom: '1px solid rgba(255,255,255,0.3)', paddingBottom: fs(4), marginBottom: fs(8) }}>SKILLS</h3>
         {Object.entries(c.skills_grouped).map(([cat, skills]) => (
-          <div 
-            key={cat} 
-            style={{ marginBottom: 8, position: 'relative' }} 
-            className="editable-section"
-          >
-            <div style={{ fontSize: 10, fontWeight: 600, opacity: 0.8, marginBottom: 3 }}>
-              <EditableText
-                value={cat}
-                onChange={(val) => onUpdateSkillCategory(cat, val)}
-                style={{ color: '#fff' }}
-              />
+          <div key={cat} style={{ marginBottom: fs(8), position: 'relative' }} className="editable-section">
+            <div style={{ fontSize: fs(10), fontWeight: 600, opacity: 0.8, marginBottom: fs(3) }}>
+              <EditableText value={cat} onChange={(val) => onUpdateSkillCategory(cat, val)} style={{ color: '#fff', fontSize: fs(10) }} />
             </div>
-            <div style={{ fontSize: 9, lineHeight: 1.6 }}>
+            <div style={{ fontSize: fs(9), lineHeight: 1.6 }}>
               <EditableText
                 value={Array.isArray(skills) ? skills.join(' • ') : skills}
-                onChange={(val) => onUpdateSkills(
-                  cat, 
-                  val.split(' • ').map(s => s.trim()).filter(Boolean)
-                )}
-                style={{ color: '#fff' }}
+                onChange={(val) => onUpdateSkills(cat, val.split(' • ').map(s => s.trim()).filter(Boolean))}
+                style={{ color: '#fff', fontSize: fs(9) }}
               />
             </div>
-            <button
-              className="remove-btn remove-btn-light"
-              onClick={() => onRemoveSkillCategory(cat)}
-            >
-              ×
-            </button>
+            <button className="remove-btn remove-btn-light" onClick={() => onRemoveSkillCategory(cat)}>×</button>
           </div>
         ))}
       </div>
@@ -1283,122 +1388,63 @@ function EditableResume({
     if (!c.certifications?.length) return null
 
     return (
-      <div style={{ marginBottom: 20 }}>
-        <h3 style={{ 
-          fontSize: 13, 
-          borderBottom: '1px solid rgba(255,255,255,0.3)', 
-          paddingBottom: 4, 
-          marginBottom: 8 
-        }}>
-          CERTIFICATIONS
-        </h3>
+      <div style={{ marginBottom: fs(20) }}>
+        <h3 style={{ fontSize: fs(13), borderBottom: '1px solid rgba(255,255,255,0.3)', paddingBottom: fs(4), marginBottom: fs(8) }}>CERTIFICATIONS</h3>
         {c.certifications.map((cert, i) => (
-          <div key={i} style={{ fontSize: 9, marginBottom: 6 }}>
+          <div key={i} style={{ fontSize: fs(9), marginBottom: fs(6) }}>
             <div style={{ fontWeight: 600 }}>{cert.title}</div>
-            <div style={{ opacity: 0.8 }}>
-              {cert.organization} • {cert.year}
-            </div>
+            <div style={{ opacity: 0.8 }}>{cert.organization} • {cert.year}</div>
           </div>
         ))}
       </div>
     )
   }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // TEMPLATE: MODERN (Two-column sidebar)
-  // ═══════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════
+  // TEMPLATE: MODERN
+  // ══════════════════════════════════════════════════════════════════
+
   if (style.template === 'modern') {
-    const mainHeaderStyle = {
-      fontSize: 14,
-      color,
-      borderBottom: `2px solid ${color}`,
-      paddingBottom: 4,
-      marginBottom: 8,
-    }
+    const mainH = { fontSize: fs(14), color, borderBottom: `2px solid ${color}`, paddingBottom: fs(4), marginBottom: fs(8) }
+    const sideH = { fontSize: fs(13), borderBottom: '1px solid rgba(255,255,255,0.3)', paddingBottom: fs(4), marginBottom: fs(8), color: '#fff' }
+    const sidebarIds = ['skills', 'certifications', 'languages', 'interests']
 
     return (
-      <div 
-        className="resume-page editable" 
-        style={{ fontFamily: font, display: 'flex', fontSize: `${fontScale}em` }}
-      >
-        {/* Sidebar */}
-        <div style={{ 
-          width: '35%', 
-          background: color, 
-          color: '#fff', 
-          padding: '30px 20px' 
-        }}>
-          {/* Photo */}
+      <div className="resume-page editable" style={{ fontFamily: font, display: 'flex' }}>
+        <div style={{ width: '35%', background: color, color: '#fff', padding: `${fs(30)}px ${fs(20)}px` }}>
           {showPhoto && pi.profile_image_url && (
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'center', 
-              marginBottom: 20 
-            }}>
-              <div style={{
-                width: 100, height: 100, borderRadius: '50%', overflow: 'hidden',
-                border: '3px solid rgba(255,255,255,0.8)'
-              }}>
-                <img 
-                  src={pi.profile_image_url} 
-                  alt="Profile" 
-                  crossOrigin="anonymous"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                />
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: fs(20) }}>
+              <div style={{ width: fs(100), height: fs(100), borderRadius: '50%', overflow: 'hidden', border: '3px solid rgba(255,255,255,0.8)' }}>
+                <img src={pi.profile_image_url} alt="Profile" crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
             </div>
           )}
-
-          {/* Name */}
-          <h1 style={{ 
-            fontSize: 22, fontWeight: 700, marginBottom: 4, textAlign: 'center' 
-          }}>
-            <EditableText
-              value={pi.name}
-              onChange={(val) => onUpdatePersonalInfo('name', val)}
-              placeholder="Your Name"
-              style={{ color: '#fff' }}
-            />
+          <h1 style={{ fontSize: fs(22), fontWeight: 700, marginBottom: fs(4), textAlign: 'center' }}>
+            <EditableText value={pi.name} onChange={(val) => onUpdatePersonalInfo('name', val)} placeholder="Your Name" style={{ color: '#fff', fontSize: fs(22) }} />
           </h1>
-
-          {/* Contact */}
-          <div style={{ fontSize: 10, marginBottom: 20, opacity: 0.9 }}>
-            {['email', 'phone', 'location', 'linkedin', 'github', 'website'].map(field => (
-              <div key={field} style={{ marginBottom: 2 }}>
-                <EditableText
-                  value={pi[field]}
-                  onChange={(val) => onUpdatePersonalInfo(field, val)}
-                  placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
-                  style={{ color: '#fff' }}
-                />
+          <div style={{ fontSize: fs(10), marginBottom: fs(20), opacity: 0.9 }}>
+            {['email', 'phone', 'location', 'linkedin', 'github', 'website'].map(f => (
+              <div key={f} style={{ marginBottom: fs(2) }}>
+                <EditableText value={pi[f]} onChange={(val) => onUpdatePersonalInfo(f, val)} placeholder={f.charAt(0).toUpperCase() + f.slice(1)} style={{ color: '#fff', fontSize: fs(10) }} />
               </div>
             ))}
           </div>
-
           {renderSidebarSkills()}
           {renderSidebarCerts()}
+          {renderLanguages(sideH, true)}
+          {renderInterests(sideH, true)}
         </div>
 
-        {/* Main Content */}
-        <div style={{ width: '65%', padding: '30px 24px' }}>
-          {visibleSections.map(section => {
-            switch (section.id) {
-              case 'summary':
-                return <div key="summary">{renderSummary(mainHeaderStyle)}</div>
-              case 'experience':
-                return <div key="experience">{renderExperience(mainHeaderStyle)}</div>
-              case 'education':
-                return <div key="education">{renderEducation(mainHeaderStyle)}</div>
-              case 'skills':
-                return null // Skills are in sidebar
-              case 'projects':
-                return <div key="projects">{renderProjects(mainHeaderStyle)}</div>
-              case 'certifications':
-                return null // Certs are in sidebar
-              case 'achievements':
-                return <div key="achievements">{renderAchievements(mainHeaderStyle)}</div>
-              default:
-                return null
+        <div style={{ width: '65%', padding: `${fs(30)}px ${fs(24)}px` }}>
+          {visibleSections.map(s => {
+            if (sidebarIds.includes(s.id)) return null
+            switch (s.id) {
+              case 'summary': return <div key={s.id}>{renderSummary(mainH)}</div>
+              case 'experience': return <div key={s.id}>{renderExperience(mainH)}</div>
+              case 'education': return <div key={s.id}>{renderEducation(mainH)}</div>
+              case 'projects': return <div key={s.id}>{renderProjects(mainH)}</div>
+              case 'achievements': return <div key={s.id}>{renderAchievements(mainH)}</div>
+              default: return null
             }
           })}
         </div>
@@ -1406,384 +1452,179 @@ function EditableResume({
     )
   }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // TEMPLATE: CLASSIC (Traditional single-column)
-  // ═══════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════
+  // TEMPLATE: CLASSIC
+  // ══════════════════════════════════════════════════════════════════
+
   if (style.template === 'classic') {
-    const headerStyle = {
-      fontSize: 13,
-      color,
-      textTransform: 'uppercase',
-      letterSpacing: 1,
-      borderBottom: `1px solid ${color}`,
-      paddingBottom: 3,
-      marginBottom: 6,
-    }
+    const hStyle = { fontSize: fs(13), color, textTransform: 'uppercase', letterSpacing: 1, borderBottom: `1px solid ${color}`, paddingBottom: fs(3), marginBottom: fs(6) }
 
     return (
-      <div 
-        className="resume-page editable" 
-        style={{ fontFamily: font, padding: '30px 36px', fontSize: `${fontScale}em` }}
-      >
-        {/* Header */}
-        <div style={{
-          borderBottom: `3px solid ${color}`,
-          paddingBottom: 14,
-          marginBottom: 18,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 20,
-        }}>
+      <div className="resume-page editable" style={{ fontFamily: font, padding: `${fs(30)}px ${fs(36)}px` }}>
+        <div style={{ borderBottom: `3px solid ${color}`, paddingBottom: fs(14), marginBottom: fs(18), display: 'flex', alignItems: 'center', gap: fs(20) }}>
           {showPhoto && pi.profile_image_url && (
-            <div style={{
-              width: 70, height: 70, borderRadius: '50%', overflow: 'hidden',
-              border: `3px solid ${color}`
-            }}>
-              <img 
-                src={pi.profile_image_url} 
-                alt="Profile" 
-                crossOrigin="anonymous"
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-              />
+            <div style={{ width: fs(70), height: fs(70), borderRadius: '50%', overflow: 'hidden', border: `3px solid ${color}` }}>
+              <img src={pi.profile_image_url} alt="Profile" crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
           )}
           <div style={{ flex: 1 }}>
-            <h1 style={{ fontSize: 26, fontWeight: 700, color, marginBottom: 6 }}>
-              <EditableText
-                value={pi.name}
-                onChange={(val) => onUpdatePersonalInfo('name', val)}
-                placeholder="Your Name"
-              />
+            <h1 style={{ fontSize: fs(26), fontWeight: 700, color, marginBottom: fs(6) }}>
+              <EditableText value={pi.name} onChange={(v) => onUpdatePersonalInfo('name', v)} placeholder="Your Name" style={{ fontSize: fs(26) }} />
             </h1>
-            <div style={{ 
-              fontSize: 10, color: '#666', display: 'flex', gap: 12, flexWrap: 'wrap' 
-            }}>
-              <span>
-                📧{' '}
-                <EditableText
-                  value={pi.email}
-                  onChange={(val) => onUpdatePersonalInfo('email', val)}
-                  placeholder="Email"
-                />
-              </span>
-              <span>
-                📱{' '}
-                <EditableText
-                  value={pi.phone}
-                  onChange={(val) => onUpdatePersonalInfo('phone', val)}
-                  placeholder="Phone"
-                />
-              </span>
-              <span>
-                📍{' '}
-                <EditableText
-                  value={pi.location}
-                  onChange={(val) => onUpdatePersonalInfo('location', val)}
-                  placeholder="Location"
-                />
-              </span>
+            <div style={{ fontSize: fs(10), color: '#666', display: 'flex', gap: fs(12), flexWrap: 'wrap' }}>
+             <span>
+  📧 <EditableText 
+      value={pi.email} 
+      onChange={(v) => onUpdatePersonalInfo('email', v)} 
+      placeholder="Email" 
+      style={{ fontSize: fs(10) }} 
+  />
+</span>
+
+<span>
+  💼 <EditableText 
+      value={pi.linkedin} 
+      onChange={(v) => onUpdatePersonalInfo('linkedin', v)} 
+      placeholder="LinkedIn" 
+      style={{ fontSize: fs(10) }} 
+  />
+</span>
+
+<span>
+  💻 <EditableText 
+      value={pi.github} 
+      onChange={(v) => onUpdatePersonalInfo('github', v)} 
+      placeholder="GitHub" 
+      style={{ fontSize: fs(10) }} 
+  />
+</span>
+
+<span>
+  🌐 <EditableText 
+      value={pi.website} 
+      onChange={(v) => onUpdatePersonalInfo('website', v)} 
+      placeholder="Website" 
+      style={{ fontSize: fs(10) }} 
+  />
+</span>
+              <span>📱 <EditableText value={pi.phone} onChange={(v) => onUpdatePersonalInfo('phone', v)} placeholder="Phone" style={{ fontSize: fs(10) }} /></span>
+              <span>📍 <EditableText value={pi.location} onChange={(v) => onUpdatePersonalInfo('location', v)} placeholder="Location" style={{ fontSize: fs(10) }} /></span>
             </div>
           </div>
         </div>
-
-        {/* Sections in order */}
-        {visibleSections.map(section => {
-          switch (section.id) {
-            case 'summary':
-              return <div key="summary">{renderSummary(headerStyle)}</div>
-            case 'experience':
-              return <div key="experience">{renderExperience(headerStyle)}</div>
-            case 'education':
-              return <div key="education">{renderEducation(headerStyle)}</div>
-            case 'skills':
-              return <div key="skills">{renderSkills(headerStyle)}</div>
-            case 'projects':
-              return <div key="projects">{renderProjects(headerStyle)}</div>
-            case 'certifications':
-              return <div key="certifications">{renderCertifications(headerStyle)}</div>
-            case 'achievements':
-              return <div key="achievements">{renderAchievements(headerStyle)}</div>
-            default:
-              return null
+        {visibleSections.map(s => {
+          switch (s.id) {
+            case 'summary': return <div key={s.id}>{renderSummary(hStyle)}</div>
+            case 'experience': return <div key={s.id}>{renderExperience(hStyle)}</div>
+            case 'education': return <div key={s.id}>{renderEducation(hStyle)}</div>
+            case 'skills': return <div key={s.id}>{renderSkills(hStyle)}</div>
+            case 'projects': return <div key={s.id}>{renderProjects(hStyle)}</div>
+            case 'certifications': return <div key={s.id}>{renderCertifications(hStyle)}</div>
+            case 'achievements': return <div key={s.id}>{renderAchievements(hStyle)}</div>
+            case 'languages': return <div key={s.id}>{renderLanguages(hStyle)}</div>
+            case 'interests': return <div key={s.id}>{renderInterests(hStyle)}</div>
+            default: return null
           }
         })}
       </div>
     )
   }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // TEMPLATE: MINIMAL (Clean & simple)
-  // ═══════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════
+  // TEMPLATE: MINIMAL
+  // ══════════════════════════════════════════════════════════════════
+
   if (style.template === 'minimal') {
-    const headerStyle = {
-      fontSize: 11,
-      textTransform: 'uppercase',
-      letterSpacing: 2,
-      color,
-      marginBottom: 10,
-      fontWeight: 600,
-    }
+    const hStyle = { fontSize: fs(11), textTransform: 'uppercase', letterSpacing: 2, color, marginBottom: fs(10), fontWeight: 600 }
 
     return (
-      <div 
-        className="resume-page editable" 
-        style={{ fontFamily: font, padding: '40px 44px', fontSize: `${fontScale}em` }}
-      >
-        {/* Header */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 24,
-          borderBottom: '1px solid #eee',
-          paddingBottom: 14,
-          marginBottom: 20,
-        }}>
+      <div className="resume-page editable" style={{ fontFamily: font, padding: `${fs(40)}px ${fs(44)}px` }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: fs(24), borderBottom: '1px solid #eee', paddingBottom: fs(14), marginBottom: fs(20) }}>
           {showPhoto && pi.profile_image_url && (
-            <div style={{
-              width: 70, height: 70, borderRadius: '50%', overflow: 'hidden',
-              border: '3px solid #ddd'
-            }}>
-              <img 
-                src={pi.profile_image_url} 
-                alt="Profile" 
-                crossOrigin="anonymous"
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-              />
+            <div style={{ width: fs(70), height: fs(70), borderRadius: '50%', overflow: 'hidden', border: '3px solid #ddd' }}>
+              <img src={pi.profile_image_url} alt="Profile" crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
           )}
-
           <div style={{ flex: 1 }}>
-            <h1 style={{ 
-              fontSize: 28, fontWeight: 300, color: '#222', 
-              marginBottom: 4, letterSpacing: 1 
-            }}>
-              <EditableText
-                value={pi.name}
-                onChange={(val) => onUpdatePersonalInfo('name', val)}
-                placeholder="Your Name"
-              />
+            <h1 style={{ fontSize: fs(28), fontWeight: 300, color: '#222', marginBottom: fs(4), letterSpacing: 1 }}>
+              <EditableText value={pi.name} onChange={(v) => onUpdatePersonalInfo('name', v)} placeholder="Your Name" style={{ fontSize: fs(28) }} />
             </h1>
-            <div style={{ 
-              fontSize: 10, color: '#888', display: 'flex', gap: 16, flexWrap: 'wrap' 
-            }}>
-              <EditableText
-                value={pi.email}
-                onChange={(val) => onUpdatePersonalInfo('email', val)}
-                placeholder="Email"
-              />
-              <EditableText
-                value={pi.phone}
-                onChange={(val) => onUpdatePersonalInfo('phone', val)}
-                placeholder="Phone"
-              />
-              <EditableText
-                value={pi.location}
-                onChange={(val) => onUpdatePersonalInfo('location', val)}
-                placeholder="Location"
-              />
+            <div style={{ fontSize: fs(10), color: '#888', display: 'flex', gap: fs(16), flexWrap: 'wrap' }}>
+              <EditableText value={pi.email} onChange={(v) => onUpdatePersonalInfo('email', v)} placeholder="Email" style={{ fontSize: fs(10) }} />
+              <EditableText value={pi.github} onChange={(v) => onUpdatePersonalInfo('github', v)} placeholder="Github" style={{ fontSize: fs(10) }} />
+              <EditableText value={pi.linkedin} onChange={(v) => onUpdatePersonalInfo('linkedin', v)} placeholder="Linkedin" style={{ fontSize: fs(10) }} />
+              <EditableText value={pi.website} onChange={(v) => onUpdatePersonalInfo('website', v)} placeholder="Website" style={{ fontSize: fs(10) }} />
+              <EditableText value={pi.phone} onChange={(v) => onUpdatePersonalInfo('phone', v)} placeholder="Phone" style={{ fontSize: fs(10) }} />
+              <EditableText value={pi.location} onChange={(v) => onUpdatePersonalInfo('location', v)} placeholder="Location" style={{ fontSize: fs(10) }} />
             </div>
           </div>
         </div>
-
-        {/* Sections in order */}
-        {visibleSections.map(section => {
-          switch (section.id) {
-            case 'summary':
-              return (
-                <div key="summary">
-                  {(c.professional_summary || editingField === 'summary') && (
-                    <div style={{ marginBottom: 22 }}>
-                      <EditableText
-                        value={c.professional_summary}
-                        onChange={onUpdateSummary}
-                        multiline
-                        placeholder="Write your professional summary..."
-                        style={{ 
-                          fontSize: 10, lineHeight: 1.8, color: '#555', 
-                          display: 'block', width: '100%' 
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-              )
-            case 'experience':
-              return <div key="experience">{renderExperience(headerStyle)}</div>
-            case 'education':
-              return <div key="education">{renderEducation(headerStyle)}</div>
-            case 'skills':
-              return <div key="skills">{renderSkills(headerStyle, true)}</div>
-            case 'projects':
-              return <div key="projects">{renderProjects(headerStyle)}</div>
-            case 'certifications':
-              return <div key="certifications">{renderCertifications(headerStyle)}</div>
-            case 'achievements':
-              return <div key="achievements">{renderAchievements(headerStyle)}</div>
-            default:
-              return null
+        {visibleSections.map(s => {
+          switch (s.id) {
+            case 'summary': return <div key={s.id}>{renderSummary(hStyle)}</div>
+            case 'experience': return <div key={s.id}>{renderExperience(hStyle)}</div>
+            case 'education': return <div key={s.id}>{renderEducation(hStyle)}</div>
+            case 'skills': return <div key={s.id}>{renderSkills(hStyle, true)}</div>
+            case 'projects': return <div key={s.id}>{renderProjects(hStyle)}</div>
+            case 'certifications': return <div key={s.id}>{renderCertifications(hStyle)}</div>
+            case 'achievements': return <div key={s.id}>{renderAchievements(hStyle)}</div>
+            case 'languages': return <div key={s.id}>{renderLanguages(hStyle)}</div>
+            case 'interests': return <div key={s.id}>{renderInterests(hStyle)}</div>
+            default: return null
           }
         })}
       </div>
     )
   }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // TEMPLATE: EXECUTIVE (Bold professional)
-  // ═══════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════
+  // TEMPLATE: EXECUTIVE
+  // ══════════════════════════════════════════════════════════════════
+
   if (style.template === 'executive') {
-    const headerStyle = {
-      fontSize: 14,
-      fontWeight: 700,
-      color,
-      marginBottom: 10,
-      textTransform: 'uppercase',
-    }
+    const hStyle = { fontSize: fs(14), fontWeight: 700, color, marginBottom: fs(10), textTransform: 'uppercase' }
 
     return (
-      <div 
-        className="resume-page editable" 
-        style={{ fontFamily: font, padding: 0, fontSize: `${fontScale}em` }}
-      >
-        {/* Header Banner */}
-        <div style={{
-          background: color,
-          color: '#fff',
-          padding: '28px 36px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: 20,
-        }}>
+      <div className="resume-page editable" style={{ fontFamily: font, padding: 0 }}>
+        <div style={{ background: color, color: '#fff', padding: `${fs(28)}px ${fs(36)}px`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: fs(20) }}>
           {showPhoto && pi.profile_image_url && (
-            <div style={{
-              width: 80, height: 80, borderRadius: '50%', overflow: 'hidden',
-              border: '3px solid rgba(255,255,255,0.9)', flexShrink: 0,
-            }}>
-              <img 
-                src={pi.profile_image_url} 
-                alt="Profile" 
-                crossOrigin="anonymous"
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-              />
+            <div style={{ width: fs(80), height: fs(80), borderRadius: '50%', overflow: 'hidden', border: '3px solid rgba(255,255,255,0.9)', flexShrink: 0 }}>
+              <img src={pi.profile_image_url} alt="Profile" crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
           )}
-
           <div style={{ flex: 1 }}>
-            <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 2 }}>
-              <EditableText
-                value={pi.name}
-                onChange={(val) => onUpdatePersonalInfo('name', val)}
-                placeholder="Your Name"
-                style={{ color: '#fff' }}
-              />
+            <h1 style={{ fontSize: fs(26), fontWeight: 700, marginBottom: fs(2) }}>
+              <EditableText value={pi.name} onChange={(v) => onUpdatePersonalInfo('name', v)} placeholder="Your Name" style={{ color: '#fff', fontSize: fs(26) }} />
             </h1>
-            {c.professional_summary && (
-              <p style={{ fontSize: 9, opacity: 0.9, maxWidth: 420, lineHeight: 1.5 }}>
-                {c.professional_summary.substring(0, 150)}...
-              </p>
-            )}
           </div>
-
-          <div style={{ fontSize: 9, textAlign: 'right', opacity: 0.9 }}>
-            <div>
-              <EditableText
-                value={pi.email}
-                onChange={(val) => onUpdatePersonalInfo('email', val)}
-                placeholder="Email"
-                style={{ color: '#fff' }}
-              />
-            </div>
-            <div>
-              <EditableText
-                value={pi.phone}
-                onChange={(val) => onUpdatePersonalInfo('phone', val)}
-                placeholder="Phone"
-                style={{ color: '#fff' }}
-              />
-            </div>
-            <div>
-              <EditableText
-                value={pi.location}
-                onChange={(val) => onUpdatePersonalInfo('location', val)}
-                placeholder="Location"
-                style={{ color: '#fff' }}
-              />
-            </div>
+          <div style={{ fontSize: fs(9), textAlign: 'right', opacity: 0.9 }}>
+              <div><EditableText value={pi.github} onChange={(v) => onUpdatePersonalInfo('github', v)} placeholder="Github" style={{ fontSize: fs(10) }} /></div>
+              <div><EditableText value={pi.email} onChange={(v) => onUpdatePersonalInfo('email', v)} placeholder="Email" style={{ fontSize: fs(10) }} /></div>
+              <div><EditableText value={pi.linkedin} onChange={(v) => onUpdatePersonalInfo('linkedin', v)} placeholder="Linkedin" style={{ fontSize: fs(10) }} /></div>
+              <div><EditableText value={pi.website} onChange={(v) => onUpdatePersonalInfo('website', v)} placeholder="Website" style={{ fontSize: fs(10) }} /></div>
+              <div><EditableText value={pi.phone} onChange={(v) => onUpdatePersonalInfo('phone', v)} placeholder="Phone" style={{ fontSize: fs(10) }} /></div>
+              <div><EditableText value={pi.location} onChange={(v) => onUpdatePersonalInfo('location', v)} placeholder="Location" style={{ fontSize: fs(10) }} /></div>
+          
           </div>
         </div>
-
-        {/* Body */}
-        <div style={{ padding: '20px 36px' }}>
-          {/* Summary Box */}
+        <div style={{ padding: `${fs(20)}px ${fs(36)}px` }}>
           {visibleSections.find(s => s.id === 'summary') && c.professional_summary && (
-            <div style={{
-              marginBottom: 16,
-              padding: 14,
-              background: '#f8f9fa',
-              borderLeft: `3px solid ${color}`,
-              borderRadius: 4,
-            }}>
-              <EditableText
-                value={c.professional_summary}
-                onChange={onUpdateSummary}
-                multiline
-                placeholder="Professional summary..."
-                style={{ 
-                  fontSize: 10, lineHeight: 1.7, color: '#444', 
-                  display: 'block', width: '100%', margin: 0 
-                }}
-              />
+            <div style={{ marginBottom: fs(16), padding: fs(14), background: '#f8f9fa', borderLeft: `3px solid ${color}`, borderRadius: 4 }}>
+              <EditableText value={c.professional_summary} onChange={onUpdateSummary} multiline placeholder="Summary..." style={{ fontSize: fs(10), lineHeight: 1.7, color: '#444', display: 'block', width: '100%' }} />
             </div>
           )}
-
-          {/* Experience */}
-          {renderExperience(headerStyle)}
-
-          {/* Two Column: Education+Projects | Skills+Certs */}
-          <div style={{ display: 'flex', gap: 24 }}>
+          {renderExperience(hStyle)}
+          <div style={{ display: 'flex', gap: fs(24) }}>
             <div style={{ flex: 1 }}>
-              {renderEducation(headerStyle)}
-              {renderProjects(headerStyle)}
-              {renderAchievements(headerStyle)}
+              {renderEducation(hStyle)}
+              {renderProjects(hStyle)}
+              {renderAchievements(hStyle)}
+              {renderLanguages(hStyle)}
             </div>
-            <div style={{ width: 200 }}>
-              {visibleSections.find(s => s.id === 'skills') && 
-                c.skills_grouped && 
-                Object.keys(c.skills_grouped).length > 0 && (
-                <div style={{ marginBottom: 16 }}>
-                  <h2 style={headerStyle}>Skills</h2>
-                  {Object.entries(c.skills_grouped).map(([cat, skills]) => (
-                    <div 
-                      key={cat} 
-                      style={{ marginBottom: 6, position: 'relative' }} 
-                      className="editable-section"
-                    >
-                      <div style={{ fontSize: 9, fontWeight: 700, color }}>
-                        <EditableText
-                          value={cat}
-                          onChange={(val) => onUpdateSkillCategory(cat, val)}
-                        />
-                      </div>
-                      <div style={{ fontSize: 9, color: '#444' }}>
-                        <EditableText
-                          value={Array.isArray(skills) ? skills.join(', ') : skills}
-                          onChange={(val) => onUpdateSkills(
-                            cat, 
-                            val.split(', ').map(s => s.trim()).filter(Boolean)
-                          )}
-                        />
-                      </div>
-                      <button
-                        className="remove-btn"
-                        onClick={() => onRemoveSkillCategory(cat)}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {renderCertifications(headerStyle)}
+            <div style={{ width: fs(200) }}>
+              {renderSkills(hStyle)}
+              {renderCertifications(hStyle)}
+              {renderInterests(hStyle)}
             </div>
           </div>
         </div>
@@ -1791,207 +1632,56 @@ function EditableResume({
     )
   }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // TEMPLATE: CREATIVE (Unique design)
-  // ═══════════════════════════════════════════════════════════════════
+  // ══════════════════════════════════════════════════════════════════
+  // TEMPLATE: CREATIVE
+  // ══════════════════════════════════════════════════════════════════
+
   if (style.template === 'creative') {
-    const headerStyle = {
-      fontSize: 14,
-      color,
-      fontWeight: 700,
-      marginBottom: 10,
-      paddingBottom: 4,
-      borderBottom: `3px double ${color}`,
-      textTransform: 'uppercase',
-      letterSpacing: 1.5,
-    }
+    const hStyle = { fontSize: fs(14), color, fontWeight: 700, marginBottom: fs(10), paddingBottom: fs(4), borderBottom: `3px double ${color}`, textTransform: 'uppercase', letterSpacing: 1.5 }
+    const smallH = { ...hStyle, fontSize: fs(12) }
 
     return (
-      <div 
-        className="resume-page editable" 
-        style={{ fontFamily: font, padding: 0, fontSize: `${fontScale}em` }}
-      >
-        {/* Creative Header - Full width with gradient */}
-        <div style={{
-          background: `linear-gradient(135deg, ${color}, ${color}dd)`,
-          color: '#fff',
-          padding: '30px 36px',
-          position: 'relative',
-          overflow: 'hidden',
-        }}>
-          {/* Decorative circles */}
-          <div style={{
-            position: 'absolute', top: -30, right: -30,
-            width: 120, height: 120, borderRadius: '50%',
-            background: 'rgba(255,255,255,0.1)',
-          }} />
-          <div style={{
-            position: 'absolute', bottom: -20, right: 60,
-            width: 80, height: 80, borderRadius: '50%',
-            background: 'rgba(255,255,255,0.05)',
-          }} />
-
-          <div style={{ 
-            display: 'flex', alignItems: 'center', gap: 24, 
-            position: 'relative', zIndex: 1 
-          }}>
+      <div className="resume-page editable" style={{ fontFamily: font, padding: 0 }}>
+        <div style={{ background: `linear-gradient(135deg, ${color}, ${color}dd)`, color: '#fff', padding: `${fs(30)}px ${fs(36)}px`, position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: -30, right: -30, width: fs(120), height: fs(120), borderRadius: '50%', background: 'rgba(255,255,255,0.1)' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: fs(24), position: 'relative', zIndex: 1 }}>
             {showPhoto && pi.profile_image_url && (
-              <div style={{
-                width: 90, height: 90, borderRadius: '50%', overflow: 'hidden',
-                border: '4px solid rgba(255,255,255,0.9)',
-                boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
-              }}>
-                <img 
-                  src={pi.profile_image_url} 
-                  alt="Profile" 
-                  crossOrigin="anonymous"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                />
+              <div style={{ width: fs(90), height: fs(90), borderRadius: '50%', overflow: 'hidden', border: '4px solid rgba(255,255,255,0.9)' }}>
+                <img src={pi.profile_image_url} alt="Profile" crossOrigin="anonymous" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               </div>
             )}
-
             <div style={{ flex: 1 }}>
-              <h1 style={{ 
-                fontSize: 28, fontWeight: 700, marginBottom: 4, letterSpacing: 2 
-              }}>
-                <EditableText
-                  value={pi.name}
-                  onChange={(val) => onUpdatePersonalInfo('name', val)}
-                  placeholder="Your Name"
-                  style={{ color: '#fff' }}
-                />
+              <h1 style={{ fontSize: fs(28), fontWeight: 700, marginBottom: fs(4), letterSpacing: 2 }}>
+                <EditableText value={pi.name} onChange={(v) => onUpdatePersonalInfo('name', v)} placeholder="Your Name" style={{ color: '#fff', fontSize: fs(28) }} />
               </h1>
-              <div style={{ 
-                fontSize: 10, opacity: 0.9, display: 'flex', 
-                gap: 16, flexWrap: 'wrap' 
-              }}>
-                {['email', 'phone', 'location'].map(field => (
-                  <span key={field}>
-                    <EditableText
-                      value={pi[field]}
-                      onChange={(val) => onUpdatePersonalInfo(field, val)}
-                      placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
-                      style={{ color: '#fff' }}
-                    />
-                  </span>
-                ))}
+              <div style={{ fontSize: fs(10), marginBottom: fs(20), opacity: 0.9 }}>
+            {['email', 'phone', 'location', 'linkedin', 'github', 'website'].map(f => (
+              <div key={f} style={{ marginBottom: fs(2) }}>
+                <EditableText value={pi[f]} onChange={(val) => onUpdatePersonalInfo(f, val)} placeholder={f.charAt(0).toUpperCase() + f.slice(1)} style={{ color: '#fff', fontSize: fs(10) }} />
               </div>
-              {(pi.linkedin || pi.github || pi.website) && (
-                <div style={{ 
-                  fontSize: 9, opacity: 0.8, display: 'flex', 
-                  gap: 12, marginTop: 4 
-                }}>
-                  {['linkedin', 'github', 'website'].map(field => 
-                    pi[field] ? (
-                      <span key={field}>
-                        <EditableText
-                          value={pi[field]}
-                          onChange={(val) => onUpdatePersonalInfo(field, val)}
-                          placeholder={field}
-                          style={{ color: '#fff' }}
-                        />
-                      </span>
-                    ) : null
-                  )}
-                </div>
-              )}
+            ))}
+          </div>
             </div>
           </div>
         </div>
-
-        {/* Body with left accent stripe */}
-        <div style={{ 
-          padding: '24px 36px', 
-          borderLeft: `4px solid ${color}`, 
-          margin: '0 0 0 20px' 
-        }}>
-          {/* Summary as styled quote */}
+        <div style={{ padding: `${fs(24)}px ${fs(36)}px`, borderLeft: `4px solid ${color}`, margin: `0 0 0 ${fs(20)}px` }}>
           {visibleSections.find(s => s.id === 'summary') && (
-            <div style={{ 
-              marginBottom: 20, 
-              padding: '12px 16px',
-              background: `${color}08`,
-              borderRadius: 8,
-              borderLeft: `3px solid ${color}`,
-            }}>
-              <EditableText
-                value={c.professional_summary}
-                onChange={onUpdateSummary}
-                multiline
-                placeholder="Write your professional summary..."
-                style={{ 
-                  fontSize: 10, lineHeight: 1.7, color: '#444', 
-                  fontStyle: 'italic', display: 'block', width: '100%' 
-                }}
-              />
+            <div style={{ marginBottom: fs(20), padding: `${fs(12)}px ${fs(16)}px`, background: `${color}08`, borderRadius: 8, borderLeft: `3px solid ${color}` }}>
+              <EditableText value={c.professional_summary} onChange={onUpdateSummary} multiline placeholder="Summary..." style={{ fontSize: fs(10), lineHeight: 1.7, color: '#444', fontStyle: 'italic', display: 'block', width: '100%' }} />
             </div>
           )}
-
-          {/* Two column layout */}
-          <div style={{ display: 'flex', gap: 28 }}>
-            {/* Left - Main content */}
+          <div style={{ display: 'flex', gap: fs(28) }}>
             <div style={{ flex: 1 }}>
-              {visibleSections.map(section => {
-                switch (section.id) {
-                  case 'experience':
-                    return <div key="experience">{renderExperience(headerStyle)}</div>
-                  case 'projects':
-                    return <div key="projects">{renderProjects(headerStyle)}</div>
-                  case 'achievements':
-                    return <div key="achievements">{renderAchievements(headerStyle)}</div>
-                  default:
-                    return null
-                }
-              })}
+              {renderExperience(hStyle)}
+              {renderProjects(hStyle)}
+              {renderAchievements(hStyle)}
             </div>
-
-            {/* Right - Side content */}
-            <div style={{ width: 180 }}>
-              {visibleSections.find(s => s.id === 'education') && renderEducation({
-                ...headerStyle, fontSize: 12,
-              })}
-
-              {visibleSections.find(s => s.id === 'skills') && 
-                c.skills_grouped && 
-                Object.keys(c.skills_grouped).length > 0 && (
-                <div style={{ marginBottom: 16 }}>
-                  <h2 style={{ ...headerStyle, fontSize: 12 }}>Skills</h2>
-                  {Object.entries(c.skills_grouped).map(([cat, skills]) => (
-                    <div 
-                      key={cat} 
-                      style={{ marginBottom: 8, position: 'relative' }} 
-                      className="editable-section"
-                    >
-                      <div style={{ 
-                        fontSize: 9, fontWeight: 700, color, 
-                        marginBottom: 2, textTransform: 'uppercase' 
-                      }}>
-                        <EditableText
-                          value={cat}
-                          onChange={(val) => onUpdateSkillCategory(cat, val)}
-                        />
-                      </div>
-                      <div style={{ fontSize: 9, color: '#555', lineHeight: 1.6 }}>
-                        <EditableText
-                          value={Array.isArray(skills) ? skills.join(' • ') : skills}
-                          onChange={(val) => onUpdateSkills(
-                            cat, 
-                            val.split(' • ').map(s => s.trim()).filter(Boolean)
-                          )}
-                        />
-                      </div>
-                      <button
-                        className="remove-btn"
-                        onClick={() => onRemoveSkillCategory(cat)}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {renderCertifications({ ...headerStyle, fontSize: 12 })}
+            <div style={{ width: fs(180) }}>
+              {renderEducation(smallH)}
+              {renderSkills(smallH)}
+              {renderLanguages(smallH)}
+              {renderInterests(smallH)}
+              {renderCertifications(smallH)}
             </div>
           </div>
         </div>
@@ -1999,57 +1689,36 @@ function EditableResume({
     )
   }
 
-  // ═══════════════════════════════════════════════════════════════════
-  // FALLBACK (should never reach here, but just in case)
-  // ═══════════════════════════════════════════════════════════════════
-  const fallbackHeader = {
-    fontSize: 13,
-    color,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    borderBottom: `1px solid ${color}`,
-    paddingBottom: 3,
-    marginBottom: 6,
-  }
+  // ══════════════════════════════════════════════════════════════════
+  // FALLBACK
+  // ══════════════════════════════════════════════════════════════════
+
+  const fH = { fontSize: fs(13), color, textTransform: 'uppercase', letterSpacing: 1, borderBottom: `1px solid ${color}`, paddingBottom: fs(3), marginBottom: fs(6) }
 
   return (
-    <div 
-      className="resume-page editable" 
-      style={{ fontFamily: font, padding: '30px 36px', fontSize: `${fontScale}em` }}
-    >
-      <h1 style={{ fontSize: 26, fontWeight: 700, color, marginBottom: 10 }}>
-        <EditableText
-          value={pi.name}
-          onChange={(val) => onUpdatePersonalInfo('name', val)}
-          placeholder="Your Name"
-        />
+    <div className="resume-page editable" style={{ fontFamily: font, padding: `${fs(30)}px ${fs(36)}px` }}>
+      <h1 style={{ fontSize: fs(26), fontWeight: 700, color, marginBottom: fs(10) }}>
+        <EditableText value={pi.name} onChange={(v) => onUpdatePersonalInfo('name', v)} placeholder="Your Name" style={{ fontSize: fs(26) }} />
       </h1>
-      <div style={{ fontSize: 10, color: '#666', marginBottom: 18 }}>
-        <EditableText value={pi.email} onChange={(val) => onUpdatePersonalInfo('email', val)} placeholder="Email" />
+      <div style={{ fontSize: fs(10), color: '#666', marginBottom: fs(18) }}>
+        <EditableText value={pi.email} onChange={(v) => onUpdatePersonalInfo('email', v)} placeholder="Email" style={{ fontSize: fs(10) }} />
         {' • '}
-        <EditableText value={pi.phone} onChange={(val) => onUpdatePersonalInfo('phone', val)} placeholder="Phone" />
+        <EditableText value={pi.phone} onChange={(v) => onUpdatePersonalInfo('phone', v)} placeholder="Phone" style={{ fontSize: fs(10) }} />
         {' • '}
-        <EditableText value={pi.location} onChange={(val) => onUpdatePersonalInfo('location', val)} placeholder="Location" />
+        <EditableText value={pi.location} onChange={(v) => onUpdatePersonalInfo('location', v)} placeholder="Location" style={{ fontSize: fs(10) }} />
       </div>
-
-      {visibleSections.map(section => {
-        switch (section.id) {
-          case 'summary':
-            return <div key="summary">{renderSummary(fallbackHeader)}</div>
-          case 'experience':
-            return <div key="experience">{renderExperience(fallbackHeader)}</div>
-          case 'education':
-            return <div key="education">{renderEducation(fallbackHeader)}</div>
-          case 'skills':
-            return <div key="skills">{renderSkills(fallbackHeader)}</div>
-          case 'projects':
-            return <div key="projects">{renderProjects(fallbackHeader)}</div>
-          case 'certifications':
-            return <div key="certifications">{renderCertifications(fallbackHeader)}</div>
-          case 'achievements':
-            return <div key="achievements">{renderAchievements(fallbackHeader)}</div>
-          default:
-            return null
+      {visibleSections.map(s => {
+        switch (s.id) {
+          case 'summary': return <div key={s.id}>{renderSummary(fH)}</div>
+          case 'experience': return <div key={s.id}>{renderExperience(fH)}</div>
+          case 'education': return <div key={s.id}>{renderEducation(fH)}</div>
+          case 'skills': return <div key={s.id}>{renderSkills(fH)}</div>
+          case 'projects': return <div key={s.id}>{renderProjects(fH)}</div>
+          case 'certifications': return <div key={s.id}>{renderCertifications(fH)}</div>
+          case 'achievements': return <div key={s.id}>{renderAchievements(fH)}</div>
+          case 'languages': return <div key={s.id}>{renderLanguages(fH)}</div>
+          case 'interests': return <div key={s.id}>{renderInterests(fH)}</div>
+          default: return null
         }
       })}
     </div>
