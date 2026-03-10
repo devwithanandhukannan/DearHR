@@ -7,6 +7,70 @@ const EMPTY = {
   linkedin: '', github: '', website: '',
 }
 
+// Validation helper function
+const validateForm = (form) => {
+  const newErrors = {}
+
+  // Name validation
+  if (!form.name.trim()) {
+    newErrors.name = 'Full name is required.'
+  } else if (form.name.trim().length < 2) {
+    newErrors.name = 'Name must be at least 2 characters.'
+  } else if (form.name.length > 100) {
+    newErrors.name = 'Name must not exceed 100 characters.'
+  }
+
+  // Email validation
+  if (!form.email.trim()) {
+    newErrors.email = 'Email is required.'
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+    newErrors.email = 'Please enter a valid email address.'
+  }
+
+  // Phone validation (optional, but if provided must be valid)
+  if (form.phone.trim()) {
+    if (!/^[\d\s\-\+\(\)]+$/.test(form.phone)) {
+      newErrors.phone = 'Phone must contain only numbers, spaces, dashes, and parentheses.'
+    } else if (form.phone.replace(/\D/g, '').length < 7) {
+      newErrors.phone = 'Phone must have at least 7 digits.'
+    }
+  }
+
+  // Location validation (optional)
+  if (form.location.length > 100) {
+    newErrors.location = 'Location must not exceed 100 characters.'
+  }
+
+  // LinkedIn validation (optional, but if provided must be valid URL)
+  if (form.linkedin.trim()) {
+    if (!/^https?:\/\/.+/.test(form.linkedin)) {
+      newErrors.linkedin = 'LinkedIn must be a valid URL starting with http:// or https://'
+    } else if (form.linkedin.length > 255) {
+      newErrors.linkedin = 'LinkedIn URL must not exceed 255 characters.'
+    }
+  }
+
+  // GitHub validation (optional, but if provided must be valid URL)
+  if (form.github.trim()) {
+    if (!/^https?:\/\/.+/.test(form.github)) {
+      newErrors.github = 'GitHub must be a valid URL starting with http:// or https://'
+    } else if (form.github.length > 255) {
+      newErrors.github = 'GitHub URL must not exceed 255 characters.'
+    }
+  }
+
+  // Website validation (optional, but if provided must be valid URL)
+  if (form.website.trim()) {
+    if (!/^https?:\/\/.+/.test(form.website)) {
+      newErrors.website = 'Website must be a valid URL starting with http:// or https://'
+    } else if (form.website.length > 255) {
+      newErrors.website = 'Website URL must not exceed 255 characters.'
+    }
+  }
+
+  return newErrors
+}
+
 export default function PersonalInfo() {
   const [form, setForm] = useState(EMPTY)
   const [exists, setExists] = useState(false)
@@ -50,8 +114,15 @@ export default function PersonalInfo() {
 
   // Form Handlers
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value })
-    setErrors({ ...errors, [e.target.name]: '' })
+    const { name, value } = e.target
+    setForm({ ...form, [name]: value })
+    
+    // Validate individual field on change
+    const fieldErrors = validateForm({ ...form, [name]: value })
+    setErrors(prev => ({
+      ...prev,
+      [name]: fieldErrors[name] || ''
+    }))
   }
 
   // Image Handlers
@@ -110,6 +181,18 @@ export default function PersonalInfo() {
   // Form Submit
   const handleSubmit = async (e) => {
     e.preventDefault()
+    
+    // Validate entire form
+    const validationErrors = validateForm(form)
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors)
+      setMsg({
+        text: 'Please fix the errors below before submitting.',
+        type: 'error',
+      })
+      return
+    }
+
     setSaving(true)
     setErrors({})
 
@@ -304,6 +387,7 @@ export default function PersonalInfo() {
                 onChange={handleChange}
                 placeholder="+1-555-0100"
               />
+              {errors.phone && <div className="field-error">{errors.phone}</div>}
             </div>
             <div className="form-group">
               <label>Location</label>
@@ -314,6 +398,7 @@ export default function PersonalInfo() {
                 onChange={handleChange}
                 placeholder="San Francisco, CA"
               />
+              {errors.location && <div className="field-error">{errors.location}</div>}
             </div>
           </div>
 

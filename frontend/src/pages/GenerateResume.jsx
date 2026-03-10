@@ -4,8 +4,6 @@ import MessageAlert from '../components/MessageAlert'
 import html2pdf from 'html2pdf.js'
 import { useNavigate } from 'react-router-dom'
 
-
-
 const TEMPLATES = [
   { value: 'classic', label: '📄 Classic', desc: 'Traditional single-column' },
   { value: 'modern', label: '🎨 Modern', desc: 'Two-column with sidebar' },
@@ -29,6 +27,18 @@ const FONTS = [
   { value: 'merriweather', label: 'Merriweather' },
 ]
 
+const LINK_ICONS = {
+  email: '📧', phone: '📱', location: '📍',
+  linkedin: '🔗', github: '💻', website: '🌐',
+  portfolio: '🎨', twitter: '🐦', medium: '✍️',
+  youtube: '▶️', stackoverflow: '📚', default: '🔗',
+}
+
+const getLinkIcon = (type) => {
+  const key = (type || '').toLowerCase()
+  return LINK_ICONS[key] || LINK_ICONS.default
+}
+
 export default function GenerateResume() {
   const navigate = useNavigate()
   const [step, setStep] = useState(1)
@@ -43,7 +53,8 @@ export default function GenerateResume() {
   const [style, setStyle] = useState({ template: 'modern', color_scheme: 'blue', font_style: 'inter' })
   const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState({ text: '', type: '' })
-  const [showPhoto, setShowPhoto] = useState(true) // Toggle for photo
+  const [showPhoto, setShowPhoto] = useState(true)
+  const [matchError, setMatchError] = useState(null) // NEW: match rejection details
   const resumeRef = useRef(null)
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value })
@@ -57,21 +68,45 @@ export default function GenerateResume() {
     e.preventDefault()
     setLoading(true)
     setMsg({ text: '', type: '' })
+    setMatchError(null)
 
     try {
       const res = await resumeAPI.generate(form)
-      // DEBUG: Log the response to see the profile image URL
-      console.log('=== Resume Data ===')
-      console.log('Personal Info:', res.data.resume_data?.personal_info)
-      console.log('Profile Image URL:', res.data.resume_data?.personal_info?.profile_image_url)
 
       setResumeData(res.data.resume_data)
       setStyle(res.data.style)
       setStep(3)
-      setMsg({ text: 'Resume generated successfully!', type: 'success' })
+
+      // Show match score if available
+      const matchData = res.data.match_data
+      if (matchData?.match_score) {
+        setMsg({
+          text: `✅ Resume generated! Job match score: ${matchData.match_score}%`,
+          type: 'success'
+        })
+      } else {
+        setMsg({ text: '✅ Resume generated successfully!', type: 'success' })
+      }
+
     } catch (err) {
-      const errMsg = err.response?.data?.message || 'Generation failed. Please try again.'
-      setMsg({ text: errMsg, type: 'error' })
+      const errData = err.response?.data
+
+      // Check if it's a job match rejection
+      if (errData?.match_data?.match === 'NO') {
+        const md = errData.match_data
+        setMatchError(md)
+        setMsg({
+          text: errData.message || 'This job does not match your profile.',
+          type: 'error'
+        })
+      } else {
+        const reason = errData?.reason
+        const message = errData?.message || 'Generation failed. Please try again.'
+        setMsg({
+          text: reason ? `${message}\n\nReason: ${reason}` : message,
+          type: 'error'
+        })
+      }
     } finally {
       setLoading(false)
     }
@@ -87,12 +122,7 @@ export default function GenerateResume() {
       margin: 0,
       filename: `${name.replace(/\s+/g, '_')}_Resume.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        letterRendering: true,
-      },
+      html2canvas: { scale: 2, useCORS: true, allowTaint: true, letterRendering: true },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
     }
 
@@ -105,7 +135,7 @@ export default function GenerateResume() {
       inter: "'Inter', sans-serif",
       georgia: "'Georgia', serif",
       roboto: "'Roboto', sans-serif",
-      merriweather: "'Merriweather', serif"
+      merriweather: "'Merriweather', serif",
     }
     return fonts[style.font_style] || fonts.inter
   }
@@ -117,6 +147,96 @@ export default function GenerateResume() {
       </div>
 
       <MessageAlert message={msg.text} type={msg.type} onClose={() => setMsg({ text: '', type: '' })} />
+
+      {/* ═══ Match Rejection Details ═══ */}
+      {matchError && (
+        <div style={{
+          background: '#fef2f2',
+          border: '1px solid #fecaca',
+          borderRadius: 12,
+          padding: 20,
+          marginBottom: 20,
+        }}>
+          <h3 style={{ color: '#dc2626', margin: '0 0 12px', fontSize: 16 }}>
+            ❌ Job Match Failed
+          </h3>
+
+          <div style={{ marginBottom: 12 }}>
+            <strong style={{ color: '#991b1b' }}>Reason:</strong>
+            <p style={{ margin: '4px 0 0', color: '#7f1d1d' }}>{matchError.reason}</p>
+          </div>
+
+          {matchError.match_score !== undefined && (
+            <div style={{ marginBottom: 12 }}>
+              <strong style={{ color: '#991b1b' }}>Match Score:</strong>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8, marginTop: 4,
+              }}>
+                <div style={{
+                  width: 200, height: 8, background: '#fee2e2', borderRadius: 4, overflow: 'hidden',
+                }}>
+                  <div style={{
+                    width: `${matchError.match_score}%`, height: '100%',
+                    background: matchError.match_score > 30 ? '#f59e0b' : '#ef4444',
+                    borderRadius: 4,
+                  }} />
+                </div>
+                <span style={{ fontSize: 14, fontWeight: 700, color: '#991b1b' }}>
+                  {matchError.match_score}%
+                </span>
+              </div>
+            </div>
+          )}
+
+          {matchError.matching_skills?.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <strong style={{ color: '#166534' }}>✅ Matching Skills:</strong>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                {matchError.matching_skills.map((skill, i) => (
+                  <span key={i} style={{
+                    background: '#dcfce7', color: '#166534', padding: '2px 8px',
+                    borderRadius: 12, fontSize: 12, border: '1px solid #bbf7d0',
+                  }}>{skill}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {matchError.missing_skills?.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <strong style={{ color: '#991b1b' }}>❌ Missing Skills:</strong>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                {matchError.missing_skills.map((skill, i) => (
+                  <span key={i} style={{
+                    background: '#fee2e2', color: '#991b1b', padding: '2px 8px',
+                    borderRadius: 12, fontSize: 12, border: '1px solid #fecaca',
+                  }}>{skill}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {matchError.recommendation && (
+            <div style={{
+              background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8,
+              padding: 12, marginTop: 12,
+            }}>
+              <strong style={{ color: '#92400e' }}>💡 Recommendation:</strong>
+              <p style={{ margin: '4px 0 0', color: '#78350f', fontSize: 13 }}>
+                {matchError.recommendation}
+              </p>
+            </div>
+          )}
+
+          <button
+            className="btn btn-secondary"
+            style={{ marginTop: 16 }}
+            onClick={() => { setMatchError(null); setStep(1) }}
+          >
+            ← Try a Different Job Description
+          </button>
+        </div>
+      )}
 
       {/* Step Indicator */}
       <div className="steps-bar">
@@ -136,7 +256,7 @@ export default function GenerateResume() {
         </div>
       </div>
 
-      {/* Step 1: Job Description */}
+      {/* Step 1 */}
       {step === 1 && (
         <div className="form-section">
           <h3>📋 Enter Job Details</h3>
@@ -158,7 +278,7 @@ export default function GenerateResume() {
                 name="customization"
                 value={form.customization}
                 onChange={handleChange}
-                placeholder="E.g.: Focus more on leadership skills, emphasize Python experience, keep it to 1 page, highlight cloud computing projects..."
+                placeholder="E.g.: Focus more on leadership skills, emphasize Python experience, keep it to 1 page..."
                 style={{ minHeight: 100 }}
               />
             </div>
@@ -171,21 +291,18 @@ export default function GenerateResume() {
         </div>
       )}
 
-      {/* Step 2: Style Customization */}
+      {/* Step 2 */}
       {step === 2 && (
         <div className="form-section">
           <h3>🎨 Customize Resume Style</h3>
 
-          {/* Template Selection */}
           <div className="form-group">
             <label>Template</label>
             <div className="template-grid">
               {TEMPLATES.map(t => (
-                <div
-                  key={t.value}
+                <div key={t.value}
                   className={`template-option ${style.template === t.value ? 'selected' : ''}`}
-                  onClick={() => handleStyleChange('template', t.value)}
-                >
+                  onClick={() => handleStyleChange('template', t.value)}>
                   <div className="template-label">{t.label}</div>
                   <div className="template-desc">{t.desc}</div>
                 </div>
@@ -193,16 +310,13 @@ export default function GenerateResume() {
             </div>
           </div>
 
-          {/* Color Scheme */}
           <div className="form-group">
             <label>Color Scheme</label>
             <div className="color-grid">
               {COLORS.map(c => (
-                <div
-                  key={c.value}
+                <div key={c.value}
                   className={`color-option ${style.color_scheme === c.value ? 'selected' : ''}`}
-                  onClick={() => handleStyleChange('color_scheme', c.value)}
-                >
+                  onClick={() => handleStyleChange('color_scheme', c.value)}>
                   <div className="color-swatch" style={{ background: c.hex }} />
                   <span>{c.label}</span>
                 </div>
@@ -210,17 +324,18 @@ export default function GenerateResume() {
             </div>
           </div>
 
-          {/* Font Style */}
           <div className="form-group">
             <label>Font Style</label>
             <div className="font-grid">
               {FONTS.map(f => (
-                <div
-                  key={f.value}
+                <div key={f.value}
                   className={`font-option ${style.font_style === f.value ? 'selected' : ''}`}
                   onClick={() => handleStyleChange('font_style', f.value)}
-                  style={{ fontFamily: f.value === 'georgia' ? 'Georgia' : f.value === 'merriweather' ? 'Merriweather, serif' : f.value === 'roboto' ? 'Roboto, sans-serif' : 'Inter, sans-serif' }}
-                >
+                  style={{
+                    fontFamily: f.value === 'georgia' ? 'Georgia' :
+                      f.value === 'merriweather' ? 'Merriweather, serif' :
+                      f.value === 'roboto' ? 'Roboto, sans-serif' : 'Inter, sans-serif'
+                  }}>
                   {f.label}
                 </div>
               ))}
@@ -241,36 +356,31 @@ export default function GenerateResume() {
               <div className="generating-animation">
                 <div className="dot" /><div className="dot" /><div className="dot" />
               </div>
-              <p>AI is crafting your ATS-optimized resume...</p>
+              <p>AI is checking job match & crafting your resume...</p>
               <p className="generating-sub">This may take 30-60 seconds</p>
             </div>
           )}
         </div>
       )}
 
-      {/* Step 3: Preview & Download */}
+      {/* Step 3 */}
       {step === 3 && resumeData && (
         <div>
-          {/* Controls */}
           <div className="resume-controls">
             <div className="controls-left">
               <button className="btn btn-secondary" onClick={() => setStep(2)}>← Back to Style</button>
               <button className="btn btn-secondary" onClick={() => setStep(1)}>✏️ Edit Details</button>
-              <button className="btn btn-secondary" onClick={() => navigate('/resume-editor', { state: { resumeData, style } })}>✏️ Edit in Editor</button>
+              <button className="btn btn-secondary" onClick={() => navigate('/resume-editor', { state: { resumeData, style } })}>
+                ✏️ Edit in Editor
+              </button>
             </div>
             <div className="controls-right">
-              {/* Photo Toggle */}
               {resumeData?.personal_info?.profile_image_url && (
                 <label className="photo-toggle">
-                  <input
-                    type="checkbox"
-                    checked={showPhoto}
-                    onChange={(e) => setShowPhoto(e.target.checked)}
-                  />
+                  <input type="checkbox" checked={showPhoto} onChange={(e) => setShowPhoto(e.target.checked)} />
                   <span>📷 Show Photo</span>
                 </label>
               )}
-              {/* Live style changers */}
               <select value={style.template} onChange={(e) => setStyle({ ...style, template: e.target.value })} className="control-select">
                 {TEMPLATES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
@@ -284,7 +394,6 @@ export default function GenerateResume() {
             </div>
           </div>
 
-          {/* Resume Preview */}
           <div className="resume-preview-container">
             <div ref={resumeRef}>
               {style.template === 'modern' && <ModernTemplate data={resumeData} color={getColor()} font={getFont()} showPhoto={showPhoto} />}
@@ -299,76 +408,149 @@ export default function GenerateResume() {
   )
 }
 
-
 /* ══════════════════════════════════════════
-   PROFILE PHOTO COMPONENT
+   PROFILE PHOTO
    ══════════════════════════════════════════ */
 
 function ProfilePhoto({ url, size = 80, borderColor = '#fff', style: customStyle = {} }) {
   if (!url) return null
-
   return (
-    <div
-      style={{
-        width: size,
-        height: size,
-        borderRadius: '50%',
-        overflow: 'hidden',
-        border: `3px solid ${borderColor}`,
-        flexShrink: 0,
-        background: '#f0f0f0',
-        ...customStyle,
-      }}
-    >
-      <img
-        src={url}
-        alt="Profile"
-        crossOrigin="anonymous"
-        style={{
-          width: '100%',
-          height: '100%',
-          objectFit: 'cover',
-        }}
-      />
+    <div style={{
+      width: size, height: size, borderRadius: '50%', overflow: 'hidden',
+      border: `3px solid ${borderColor}`, flexShrink: 0, background: '#f0f0f0',
+      ...customStyle,
+    }}>
+      <img src={url} alt="Profile" crossOrigin="anonymous"
+        style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
     </div>
   )
 }
 
+/* ══════════════════════════════════════════
+   SHARED: CONTACT RENDERERS
+   ══════════════════════════════════════════ */
+
+// Vertical list with icons (for sidebars)
+function ContactList({ pi, links = [], fontSize = 10, color = '#fff' }) {
+  const fields = [
+    { key: 'email', icon: '📧' },
+    { key: 'phone', icon: '📱' },
+    { key: 'location', icon: '📍' },
+    { key: 'linkedin', icon: '🔗' },
+    { key: 'github', icon: '💻' },
+    { key: 'website', icon: '🌐' },
+  ]
+
+  return (
+    <div style={{ fontSize, marginBottom: 20, opacity: 0.9 }}>
+      {fields.map(f => pi[f.key] ? (
+        <div key={f.key} style={{ marginBottom: 3, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ fontSize: fontSize - 1 }}>{f.icon}</span>
+          <span style={{ color }}>{pi[f.key]}</span>
+        </div>
+      ) : null)}
+      {links.map((link, i) => (
+        <div key={`al-${i}`} style={{ marginBottom: 3, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ fontSize: fontSize - 1 }}>{getLinkIcon(link.link_type)}</span>
+          <span style={{ color }}>{link.title || link.link_type || link.url}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Horizontal row with icons (for headers)
+function ContactRow({ pi, links = [], fontSize = 10, color = '#666' }) {
+  const fields = [
+    { key: 'email', icon: '📧' },
+    { key: 'phone', icon: '📱' },
+    { key: 'location', icon: '📍' },
+    { key: 'linkedin', icon: '🔗' },
+    { key: 'github', icon: '💻' },
+    { key: 'website', icon: '🌐' },
+  ]
+
+  return (
+    <div style={{ fontSize, color, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+      {fields.map(f => pi[f.key] ? (
+        <span key={f.key}>{f.icon} {pi[f.key]}</span>
+      ) : null)}
+      {links.map((link, i) => (
+        <span key={`al-${i}`}>
+          {getLinkIcon(link.link_type)} {link.title || link.link_type || link.url}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+// Clean row without icons (for minimal)
+function ContactMinimal({ pi, links = [], fontSize = 10 }) {
+  const fields = ['email', 'phone', 'location', 'linkedin', 'github', 'website']
+
+  return (
+    <div style={{ fontSize, color: '#888', display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+      {fields.map(f => pi[f] ? <span key={f}>{pi[f]}</span> : null)}
+      {links.map((link, i) => (
+        <span key={`al-${i}`}>{link.title || link.link_type || link.url}</span>
+      ))}
+    </div>
+  )
+}
+
+// Right-aligned vertical (for executive header)
+function ContactRight({ pi, links = [], fontSize = 9, color = '#fff' }) {
+  const fields = [
+    { key: 'email', icon: '📧' },
+    { key: 'phone', icon: '📱' },
+    { key: 'location', icon: '📍' },
+    { key: 'linkedin', icon: '🔗' },
+    { key: 'github', icon: '💻' },
+    { key: 'website', icon: '🌐' },
+  ]
+
+  return (
+    <div style={{ fontSize, textAlign: 'right', opacity: 0.9 }}>
+      {fields.map(f => pi[f.key] ? (
+        <div key={f.key} style={{ marginBottom: 1, color }}>{pi[f.key]} {f.icon}</div>
+      ) : null)}
+      {links.map((link, i) => (
+        <div key={`al-${i}`} style={{ marginBottom: 1, color }}>
+          {link.title || link.link_type || link.url} {getLinkIcon(link.link_type)}
+        </div>
+      ))}
+    </div>
+  )
+}
 
 /* ══════════════════════════════════════════
-   RESUME TEMPLATES WITH PHOTOS
+   TEMPLATE: MODERN
    ══════════════════════════════════════════ */
 
 function ModernTemplate({ data, color, font, showPhoto }) {
   const pi = data.personal_info || {}
   const c = data.content || data || {}
+  const links = data.additional_links || []
 
   return (
     <div className="resume-page" style={{ fontFamily: font, display: 'flex' }}>
       {/* Sidebar */}
       <div style={{ width: '35%', background: color, color: '#fff', padding: '30px 20px' }}>
-        {/* Profile Photo */}
         {showPhoto && pi.profile_image_url && (
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
-            <ProfilePhoto
-              url={pi.profile_image_url}
-              size={100}
-              borderColor="rgba(255,255,255,0.8)"
-            />
+            <ProfilePhoto url={pi.profile_image_url} size={100} borderColor="rgba(255,255,255,0.8)" />
           </div>
         )}
 
-        <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 4, lineHeight: 1.3, textAlign: showPhoto && pi.profile_image_url ? 'center' : 'left' }}>
+        <h1 style={{
+          fontSize: 22, fontWeight: 700, marginBottom: 4, lineHeight: 1.3,
+          textAlign: showPhoto && pi.profile_image_url ? 'center' : 'left'
+        }}>
           {pi.name || 'Your Name'}
         </h1>
-        <div style={{ fontSize: 10, marginBottom: 20, opacity: 0.9 }}>
-          {pi.email && <div>📧 {pi.email}</div>}
-          {pi.phone && <div>📱 {pi.phone}</div>}
-          {pi.location && <div>📍 {pi.location}</div>}
-          {pi.linkedin && <div>🔗 {pi.linkedin}</div>}
-          {pi.github && <div>💻 {pi.github}</div>}
-          {pi.website && <div>🌐 {pi.website}</div>}
-        </div>
+
+        {/* ALL contact + links */}
+        <ContactList pi={pi} links={links} fontSize={10} color="#fff" />
 
         {/* Skills */}
         {c.skills_grouped && Object.keys(c.skills_grouped).length > 0 && (
@@ -396,22 +578,22 @@ function ModernTemplate({ data, color, font, showPhoto }) {
           </div>
         )}
 
-        {/* Links */}
-        {data.additional_links?.length > 0 && (
+        {/* Additional Links section */}
+        {links.length > 0 && (
           <div>
             <h3 style={{ fontSize: 13, borderBottom: '1px solid rgba(255,255,255,0.3)', paddingBottom: 4, marginBottom: 8 }}>LINKS</h3>
-            {data.additional_links.map((link, i) => (
-              <div key={i} style={{ fontSize: 9, marginBottom: 4 }}>
-                <div style={{ fontWeight: 600 }}>{link.link_type}</div>
+            {links.map((link, i) => (
+              <div key={i} style={{ fontSize: 9, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span>{getLinkIcon(link.link_type)}</span>
+                <span>{link.title || link.link_type || link.url}</span>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* Main Content */}
+      {/* Main */}
       <div style={{ width: '65%', padding: '30px 24px' }}>
-        {/* Summary */}
         {c.professional_summary && (
           <div style={{ marginBottom: 18 }}>
             <h2 style={{ fontSize: 14, color, borderBottom: `2px solid ${color}`, paddingBottom: 4, marginBottom: 8 }}>PROFESSIONAL SUMMARY</h2>
@@ -419,7 +601,6 @@ function ModernTemplate({ data, color, font, showPhoto }) {
           </div>
         )}
 
-        {/* Experience */}
         {c.experience?.length > 0 && (
           <div style={{ marginBottom: 18 }}>
             <h2 style={{ fontSize: 14, color, borderBottom: `2px solid ${color}`, paddingBottom: 4, marginBottom: 8 }}>EXPERIENCE</h2>
@@ -438,7 +619,6 @@ function ModernTemplate({ data, color, font, showPhoto }) {
           </div>
         )}
 
-        {/* Education */}
         {c.education?.length > 0 && (
           <div style={{ marginBottom: 18 }}>
             <h2 style={{ fontSize: 14, color, borderBottom: `2px solid ${color}`, paddingBottom: 4, marginBottom: 8 }}>EDUCATION</h2>
@@ -453,7 +633,6 @@ function ModernTemplate({ data, color, font, showPhoto }) {
           </div>
         )}
 
-        {/* Projects */}
         {c.projects?.length > 0 && (
           <div style={{ marginBottom: 18 }}>
             <h2 style={{ fontSize: 14, color, borderBottom: `2px solid ${color}`, paddingBottom: 4, marginBottom: 8 }}>PROJECTS</h2>
@@ -467,7 +646,6 @@ function ModernTemplate({ data, color, font, showPhoto }) {
           </div>
         )}
 
-        {/* Achievements */}
         {c.achievements?.length > 0 && (
           <div>
             <h2 style={{ fontSize: 14, color, borderBottom: `2px solid ${color}`, paddingBottom: 4, marginBottom: 8 }}>ACHIEVEMENTS</h2>
@@ -484,53 +662,41 @@ function ModernTemplate({ data, color, font, showPhoto }) {
   )
 }
 
+/* ══════════════════════════════════════════
+   TEMPLATE: CLASSIC
+   ══════════════════════════════════════════ */
 
 function ClassicTemplate({ data, color, font, showPhoto }) {
   const pi = data.personal_info || {}
   const c = data.content || data || {}
+  const links = data.additional_links || []
+
+  const hStyle = { fontSize: 13, color, textTransform: 'uppercase', letterSpacing: 1, borderBottom: `1px solid ${color}`, paddingBottom: 3, marginBottom: 6 }
 
   return (
     <div className="resume-page" style={{ fontFamily: font, padding: '30px 36px' }}>
       {/* Header */}
-      <div style={{
-        borderBottom: `3px solid ${color}`,
-        paddingBottom: 14,
-        marginBottom: 18,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 20,
-      }}>
-        {/* Profile Photo */}
+      <div style={{ borderBottom: `3px solid ${color}`, paddingBottom: 14, marginBottom: 18, display: 'flex', alignItems: 'center', gap: 20 }}>
         {showPhoto && pi.profile_image_url && (
-          <ProfilePhoto
-            url={pi.profile_image_url}
-            size={70}
-            borderColor={color}
-          />
+          <ProfilePhoto url={pi.profile_image_url} size={70} borderColor={color} />
         )}
-
         <div style={{ flex: 1, textAlign: showPhoto && pi.profile_image_url ? 'left' : 'center' }}>
           <h1 style={{ fontSize: 26, fontWeight: 700, color, marginBottom: 6 }}>{pi.name || 'Your Name'}</h1>
-          <div style={{ fontSize: 10, color: '#666', display: 'flex', justifyContent: showPhoto && pi.profile_image_url ? 'flex-start' : 'center', gap: 12, flexWrap: 'wrap' }}>
-            {pi.email && <span>📧 {pi.email}</span>}
-            {pi.phone && <span>📱 {pi.phone}</span>}
-            {pi.location && <span>📍 {pi.location}</span>}
-            {pi.linkedin && <span>🔗 LinkedIn</span>}
-            {pi.github && <span>💻 GitHub</span>}
-          </div>
+          {/* ALL LINKS */}
+          <ContactRow pi={pi} links={links} fontSize={10} color="#666" />
         </div>
       </div>
 
       {c.professional_summary && (
         <div style={{ marginBottom: 16 }}>
-          <h2 style={{ fontSize: 13, color, textTransform: 'uppercase', letterSpacing: 1, borderBottom: `1px solid ${color}`, paddingBottom: 3, marginBottom: 6 }}>Professional Summary</h2>
+          <h2 style={hStyle}>Professional Summary</h2>
           <p style={{ fontSize: 10, lineHeight: 1.7, color: '#444' }}>{c.professional_summary}</p>
         </div>
       )}
 
       {c.experience?.length > 0 && (
         <div style={{ marginBottom: 16 }}>
-          <h2 style={{ fontSize: 13, color, textTransform: 'uppercase', letterSpacing: 1, borderBottom: `1px solid ${color}`, paddingBottom: 3, marginBottom: 6 }}>Experience</h2>
+          <h2 style={hStyle}>Experience</h2>
           {c.experience.map((exp, i) => (
             <div key={i} style={{ marginBottom: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -547,7 +713,7 @@ function ClassicTemplate({ data, color, font, showPhoto }) {
 
       {c.education?.length > 0 && (
         <div style={{ marginBottom: 16 }}>
-          <h2 style={{ fontSize: 13, color, textTransform: 'uppercase', letterSpacing: 1, borderBottom: `1px solid ${color}`, paddingBottom: 3, marginBottom: 6 }}>Education</h2>
+          <h2 style={hStyle}>Education</h2>
           {c.education.map((edu, i) => (
             <div key={i} style={{ marginBottom: 6, display: 'flex', justifyContent: 'space-between' }}>
               <div>
@@ -563,7 +729,7 @@ function ClassicTemplate({ data, color, font, showPhoto }) {
 
       {c.skills_grouped && Object.keys(c.skills_grouped).length > 0 && (
         <div style={{ marginBottom: 16 }}>
-          <h2 style={{ fontSize: 13, color, textTransform: 'uppercase', letterSpacing: 1, borderBottom: `1px solid ${color}`, paddingBottom: 3, marginBottom: 6 }}>Skills</h2>
+          <h2 style={hStyle}>Skills</h2>
           {Object.entries(c.skills_grouped).map(([cat, skills]) => (
             <div key={cat} style={{ fontSize: 10, marginBottom: 3 }}>
               <strong>{cat}:</strong> {Array.isArray(skills) ? skills.join(', ') : skills}
@@ -574,7 +740,7 @@ function ClassicTemplate({ data, color, font, showPhoto }) {
 
       {c.projects?.length > 0 && (
         <div style={{ marginBottom: 16 }}>
-          <h2 style={{ fontSize: 13, color, textTransform: 'uppercase', letterSpacing: 1, borderBottom: `1px solid ${color}`, paddingBottom: 3, marginBottom: 6 }}>Projects</h2>
+          <h2 style={hStyle}>Projects</h2>
           {c.projects.map((p, i) => (
             <div key={i} style={{ marginBottom: 6 }}>
               <span style={{ fontSize: 10, fontWeight: 700 }}>{p.title}</span>
@@ -587,9 +753,21 @@ function ClassicTemplate({ data, color, font, showPhoto }) {
 
       {c.certifications?.length > 0 && (
         <div style={{ marginBottom: 16 }}>
-          <h2 style={{ fontSize: 13, color, textTransform: 'uppercase', letterSpacing: 1, borderBottom: `1px solid ${color}`, paddingBottom: 3, marginBottom: 6 }}>Certifications</h2>
+          <h2 style={hStyle}>Certifications</h2>
           {c.certifications.map((cert, i) => (
             <div key={i} style={{ fontSize: 10, marginBottom: 3 }}>{cert.title} — {cert.organization} ({cert.year})</div>
+          ))}
+        </div>
+      )}
+
+      {c.achievements?.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <h2 style={hStyle}>Achievements</h2>
+          {c.achievements.map((a, i) => (
+            <div key={i} style={{ fontSize: 9, marginBottom: 4 }}>
+              <span style={{ fontWeight: 700 }}>{a.title}</span>
+              {a.description && <span style={{ color: '#666' }}> — {a.description}</span>}
+            </div>
           ))}
         </div>
       )}
@@ -597,39 +775,30 @@ function ClassicTemplate({ data, color, font, showPhoto }) {
   )
 }
 
+/* ══════════════════════════════════════════
+   TEMPLATE: MINIMAL
+   ══════════════════════════════════════════ */
 
 function MinimalTemplate({ data, color, font, showPhoto }) {
   const pi = data.personal_info || {}
   const c = data.content || data || {}
+  const links = data.additional_links || []
+
+  const hStyle = { fontSize: 11, textTransform: 'uppercase', letterSpacing: 2, color, marginBottom: 10, fontWeight: 600 }
 
   return (
     <div className="resume-page" style={{ fontFamily: font, padding: '40px 44px' }}>
-      {/* Header with optional photo */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 24,
-        borderBottom: '1px solid #eee',
-        paddingBottom: 14,
-        marginBottom: 20,
-      }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 24, borderBottom: '1px solid #eee', paddingBottom: 14, marginBottom: 20 }}>
         {showPhoto && pi.profile_image_url && (
-          <ProfilePhoto
-            url={pi.profile_image_url}
-            size={70}
-            borderColor="#ddd"
-          />
+          <ProfilePhoto url={pi.profile_image_url} size={70} borderColor="#ddd" />
         )}
-
         <div style={{ flex: 1 }}>
           <h1 style={{ fontSize: 28, fontWeight: 300, color: '#222', marginBottom: 4, letterSpacing: 1 }}>
             {pi.name || 'Your Name'}
           </h1>
-          <div style={{ fontSize: 10, color: '#888', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-            {pi.email && <span>{pi.email}</span>}
-            {pi.phone && <span>{pi.phone}</span>}
-            {pi.location && <span>{pi.location}</span>}
-          </div>
+          {/* ALL LINKS - clean minimal */}
+          <ContactMinimal pi={pi} links={links} fontSize={10} />
         </div>
       </div>
 
@@ -639,7 +808,7 @@ function MinimalTemplate({ data, color, font, showPhoto }) {
 
       {c.experience?.length > 0 && (
         <div style={{ marginBottom: 22 }}>
-          <h2 style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 2, color, marginBottom: 10, fontWeight: 600 }}>Experience</h2>
+          <h2 style={hStyle}>Experience</h2>
           {c.experience.map((exp, i) => (
             <div key={i} style={{ marginBottom: 14 }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: '#222' }}>{exp.role}</div>
@@ -654,7 +823,7 @@ function MinimalTemplate({ data, color, font, showPhoto }) {
 
       {c.education?.length > 0 && (
         <div style={{ marginBottom: 22 }}>
-          <h2 style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 2, color, marginBottom: 10, fontWeight: 600 }}>Education</h2>
+          <h2 style={hStyle}>Education</h2>
           {c.education.map((edu, i) => (
             <div key={i} style={{ marginBottom: 6 }}>
               <span style={{ fontSize: 10, fontWeight: 600 }}>{edu.degree}</span>
@@ -666,7 +835,7 @@ function MinimalTemplate({ data, color, font, showPhoto }) {
 
       {c.skills_grouped && Object.keys(c.skills_grouped).length > 0 && (
         <div style={{ marginBottom: 22 }}>
-          <h2 style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 2, color, marginBottom: 10, fontWeight: 600 }}>Skills</h2>
+          <h2 style={hStyle}>Skills</h2>
           <div style={{ fontSize: 10, lineHeight: 2, color: '#444' }}>
             {Object.values(c.skills_grouped).flat().join(' · ')}
           </div>
@@ -675,10 +844,31 @@ function MinimalTemplate({ data, color, font, showPhoto }) {
 
       {c.projects?.length > 0 && (
         <div style={{ marginBottom: 22 }}>
-          <h2 style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 2, color, marginBottom: 10, fontWeight: 600 }}>Projects</h2>
+          <h2 style={hStyle}>Projects</h2>
           {c.projects.map((p, i) => (
             <div key={i} style={{ marginBottom: 6, fontSize: 10 }}>
               <strong>{p.title}</strong> — <span style={{ color: '#666' }}>{p.description}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {c.certifications?.length > 0 && (
+        <div style={{ marginBottom: 22 }}>
+          <h2 style={hStyle}>Certifications</h2>
+          {c.certifications.map((cert, i) => (
+            <div key={i} style={{ fontSize: 10, marginBottom: 3 }}>{cert.title} — {cert.organization} ({cert.year})</div>
+          ))}
+        </div>
+      )}
+
+      {c.achievements?.length > 0 && (
+        <div style={{ marginBottom: 22 }}>
+          <h2 style={hStyle}>Achievements</h2>
+          {c.achievements.map((a, i) => (
+            <div key={i} style={{ fontSize: 9, marginBottom: 4 }}>
+              <span style={{ fontWeight: 700 }}>{a.title}</span>
+              {a.description && <span style={{ color: '#666' }}> — {a.description}</span>}
             </div>
           ))}
         </div>
@@ -687,32 +877,24 @@ function MinimalTemplate({ data, color, font, showPhoto }) {
   )
 }
 
+/* ══════════════════════════════════════════
+   TEMPLATE: EXECUTIVE
+   ══════════════════════════════════════════ */
 
 function ExecutiveTemplate({ data, color, font, showPhoto }) {
   const pi = data.personal_info || {}
   const c = data.content || data || {}
+  const links = data.additional_links || []
+
+  const hStyle = { fontSize: 13, fontWeight: 700, color, marginBottom: 8, textTransform: 'uppercase' }
 
   return (
     <div className="resume-page" style={{ fontFamily: font, padding: 0 }}>
-      {/* Header Banner */}
-      <div style={{
-        background: color,
-        color: '#fff',
-        padding: '28px 36px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        gap: 20,
-      }}>
-        {/* Photo on the left */}
+      {/* Banner */}
+      <div style={{ background: color, color: '#fff', padding: '28px 36px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 20 }}>
         {showPhoto && pi.profile_image_url && (
-          <ProfilePhoto
-            url={pi.profile_image_url}
-            size={80}
-            borderColor="rgba(255,255,255,0.9)"
-          />
+          <ProfilePhoto url={pi.profile_image_url} size={80} borderColor="rgba(255,255,255,0.9)" />
         )}
-
         <div style={{ flex: 1 }}>
           <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 2 }}>{pi.name || 'Your Name'}</h1>
           {c.professional_summary && (
@@ -721,12 +903,8 @@ function ExecutiveTemplate({ data, color, font, showPhoto }) {
             </p>
           )}
         </div>
-
-        <div style={{ fontSize: 9, textAlign: 'right', opacity: 0.9 }}>
-          {pi.email && <div>{pi.email}</div>}
-          {pi.phone && <div>{pi.phone}</div>}
-          {pi.location && <div>{pi.location}</div>}
-        </div>
+        {/* ALL LINKS - right aligned */}
+        <ContactRight pi={pi} links={links} fontSize={9} color="#fff" />
       </div>
 
       <div style={{ padding: '20px 36px' }}>
@@ -757,7 +935,7 @@ function ExecutiveTemplate({ data, color, font, showPhoto }) {
           <div style={{ flex: 1 }}>
             {c.education?.length > 0 && (
               <div style={{ marginBottom: 16 }}>
-                <h2 style={{ fontSize: 13, fontWeight: 700, color, marginBottom: 8, textTransform: 'uppercase' }}>Education</h2>
+                <h2 style={hStyle}>Education</h2>
                 {c.education.map((edu, i) => (
                   <div key={i} style={{ marginBottom: 6 }}>
                     <div style={{ fontSize: 10, fontWeight: 700 }}>{edu.degree}</div>
@@ -768,12 +946,24 @@ function ExecutiveTemplate({ data, color, font, showPhoto }) {
             )}
 
             {c.projects?.length > 0 && (
-              <div>
-                <h2 style={{ fontSize: 13, fontWeight: 700, color, marginBottom: 8, textTransform: 'uppercase' }}>Key Projects</h2>
+              <div style={{ marginBottom: 16 }}>
+                <h2 style={hStyle}>Key Projects</h2>
                 {c.projects.map((p, i) => (
                   <div key={i} style={{ marginBottom: 6 }}>
                     <div style={{ fontSize: 10, fontWeight: 700 }}>{p.title}</div>
                     <div style={{ fontSize: 9, color: '#666' }}>{p.description}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {c.achievements?.length > 0 && (
+              <div>
+                <h2 style={hStyle}>Achievements</h2>
+                {c.achievements.map((a, i) => (
+                  <div key={i} style={{ fontSize: 9, marginBottom: 4 }}>
+                    <span style={{ fontWeight: 700 }}>{a.title}</span>
+                    {a.description && <span style={{ color: '#666' }}> — {a.description}</span>}
                   </div>
                 ))}
               </div>
@@ -783,7 +973,7 @@ function ExecutiveTemplate({ data, color, font, showPhoto }) {
           <div style={{ width: 200 }}>
             {c.skills_grouped && Object.keys(c.skills_grouped).length > 0 && (
               <div style={{ marginBottom: 16 }}>
-                <h2 style={{ fontSize: 13, fontWeight: 700, color, marginBottom: 8, textTransform: 'uppercase' }}>Skills</h2>
+                <h2 style={hStyle}>Skills</h2>
                 {Object.entries(c.skills_grouped).map(([cat, skills]) => (
                   <div key={cat} style={{ marginBottom: 6 }}>
                     <div style={{ fontSize: 9, fontWeight: 700, color }}>{cat}</div>
@@ -795,7 +985,7 @@ function ExecutiveTemplate({ data, color, font, showPhoto }) {
 
             {c.certifications?.length > 0 && (
               <div>
-                <h2 style={{ fontSize: 13, fontWeight: 700, color, marginBottom: 8, textTransform: 'uppercase' }}>Certifications</h2>
+                <h2 style={hStyle}>Certifications</h2>
                 {c.certifications.map((cert, i) => (
                   <div key={i} style={{ fontSize: 9, marginBottom: 4, color: '#444' }}>
                     <div style={{ fontWeight: 600 }}>{cert.title}</div>
