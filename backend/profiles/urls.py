@@ -43,6 +43,8 @@ urlpatterns = [
     # ✅ CORRECT
     path('resume/generate/', resume_views.generate_resume_view, name='generate_resume'),
     path('resume/preview/', resume_views.resume_preview_data, name='resume_preview'),
+    path('resume/check-match/', resume_views.check_job_match, name='check-job-match'),
+    
 
     # Cold Email
     path('email/generate/', email_views.generate_email, name='generate_email'),

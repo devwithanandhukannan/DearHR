@@ -627,3 +627,117 @@ def generate_resume(
         cache.set(cache_key, resume_data, cache_ttl)
 
     return resume_data
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  Simple LLM Call (for non-resume queries like job matching)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def generate_simple_llm_response(
+    prompt: str,
+    *,
+    max_retries: int = API_MAX_RETRIES,
+) -> str:
+    """Send prompt to LLM and return RAW text response.
+    
+    Unlike generate_with_llm(), this does NOT parse the response
+    as resume data. Use this for simple queries like job matching,
+    yes/no checks, etc.
+    
+    Returns
+    -------
+    str
+        Raw text response from the LLM.
+    """
+    last_exception = None
+
+    for attempt in range(1, max_retries + 1):
+        try:
+            logger.info(
+                "Simple LLM request attempt %d/%d",
+                attempt, max_retries,
+            )
+            raw_text = _post_to_api(prompt)
+            logger.info("Simple LLM response received on attempt %d.", attempt)
+            return raw_text
+
+        except LLMAuthError:
+            raise
+
+        except LLMRateLimitError as exc:
+            last_exception = exc
+            if attempt < max_retries:
+                logger.warning(
+                    "Rate limited on attempt %d. Waiting %ds...",
+                    attempt, API_RETRY_DELAY,
+                )
+                time.sleep(API_RETRY_DELAY)
+                continue
+
+        except requests.exceptions.ConnectionError as exc:
+            last_exception = LLMConnectionError(
+                f"Cannot connect to AI API at {API_URL}."
+            )
+            logger.error("Connection failed (attempt %d): %s", attempt, exc)
+            if attempt < max_retries:
+                time.sleep(5)
+
+        except requests.exceptions.Timeout as exc:
+            last_exception = LLMTimeoutError(
+                f"AI API timed out after {API_TIMEOUT}s."
+            )
+            logger.error("Timeout (attempt %d): %s", attempt, exc)
+            if attempt < max_retries:
+                time.sleep(5)
+
+        except Exception as exc:
+            last_exception = LLMGenerationError(f"Unexpected error: {exc}")
+            logger.exception("Unexpected error on attempt %d", attempt)
+            if attempt < max_retries:
+                time.sleep(5)
+
+    raise last_exception or LLMGenerationError("LLM request failed.")
+
+
+def parse_simple_json(raw_text: str) -> dict:
+    """Parse a simple JSON response from LLM.
+    
+    Handles common LLM artifacts like markdown code fences.
+    Returns empty dict on failure.
+    """
+    text = raw_text.strip()
+
+    # Try direct parse
+    try:
+        data = json.loads(text)
+        if isinstance(data, dict):
+            return data
+    except json.JSONDecodeError:
+        pass
+
+    # Try extracting from code fences
+    for pattern in _JSON_PATTERNS:
+        match = pattern.search(text)
+        if match:
+            json_str = _clean_json_string(match.group(1))
+            try:
+                data = json.loads(json_str)
+                if isinstance(data, dict):
+                    return data
+            except (json.JSONDecodeError, IndexError):
+                continue
+
+    # Try cleaning entire text
+    try:
+        cleaned = _clean_json_string(text)
+        data = json.loads(cleaned)
+        if isinstance(data, dict):
+            return data
+    except json.JSONDecodeError:
+        pass
+
+    logger.error(
+        "Failed to parse simple JSON. First 300 chars: %s",
+        text[:300],
+    )
+    return {}
