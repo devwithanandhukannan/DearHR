@@ -172,7 +172,7 @@ CSRF_COOKIE_HTTPONLY = False
 OLLAMA_API_URL = 'http://localhost:11434/api/generate'
 OLLAMA_MODEL = 'mistral'  
 
-LLM_API_KEY = 'apf_b93yap8hjnqh1eqred027ta1'  # ← Just the key, nothing else
+LLM_API_KEY = ''  # ← Just the key, nothing else
 LLM_API_URL = 'https://apifreellm.com/api/v1/chat'
 LLM_MODEL = 'apifreellm'
 LLM_TIMEOUT = 120
